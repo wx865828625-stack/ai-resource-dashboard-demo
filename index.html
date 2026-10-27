@@ -1,0 +1,2645 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:,">
+<title>座舱 AI 资源统计与分析</title>
+<script src="./assets/vendor/chart.umd.min.js"></script>
+<script src="./assets/vendor/marked.min.js"></script>
+<script src="./assets/vendor/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f6fa; color: #2d3436; overflow-x: hidden; }
+  html, body { height: 100%; }
+  .header { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: #fff; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
+  .header-left { flex: 1; }
+  .header h1 { font-size: 18px; font-weight: 700; }
+  .header .sub { font-size: 11px; opacity: .7; margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .user-info { font-size: 12px; opacity: .9; }
+  .user-info .role { background: rgba(255,255,255,.2); padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-left: 6px; }
+  .logout-btn { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.3); padding: 4px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: all .2s; }
+  .logout-btn:hover { background: rgba(255,255,255,.25); }
+
+  /* Tab 导航 */
+  .tab-nav { background: #fff; border-bottom: 2px solid #e8ecf1; display: flex; gap: 0; padding: 0 24px; }
+  .tab-btn { padding: 10px 20px; border: none; background: none; font-size: 13px; font-weight: 600; color: #7f8c8d; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .2s; }
+  .tab-btn:hover { color: #2c3e50; background: #f8f9fa; }
+  .tab-btn.active { color: #3498db; border-bottom-color: #3498db; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .container { max-width: 1280px; margin: 0 auto; padding: 10px 16px; }
+
+  /* Date range filter */
+  .filter-bar { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; background: #fff; padding: 8px 14px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .filter-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .filter-bar label { font-size: 12px; color: #666; font-weight: 500; }
+  .filter-bar input[type="date"] { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; }
+  .filter-bar select { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; }
+  .btn { padding: 6px 16px; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 500; }
+  .btn-primary { background: #3498db; color: #fff; }
+  .btn-primary:hover { background: #2980b9; }
+  .btn-preset { background: #ecf0f1; color: #555; margin-left: 4px; }
+  .btn-preset:hover { background: #d5dbdb; }
+  .btn-preset.active { background: #3498db; color: #fff; }
+
+  /* Cross-domain toggle */
+  .toggle-group { display: inline-flex; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; font-size: 11px; }
+  .toggle-group .toggle-opt { padding: 4px 12px; cursor: pointer; background: #f8f9fa; color: #666; border: none; border-right: 1px solid #ddd; transition: all .15s; user-select: none; white-space: nowrap; }
+  .toggle-group .toggle-opt:last-child { border-right: none; }
+  .toggle-group .toggle-opt:hover { background: #e8f4fd; }
+  .toggle-group .toggle-opt.active { background: #3498db; color: #fff; font-weight: 600; }
+
+  /* KPI */
+  .section-title { font-size: 13px; font-weight: 700; color: #2c3e50; margin: 8px 0 6px; padding-left: 8px; border-left: 3px solid #3498db; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .kpi-card { background: #fff; border-radius: 8px; padding: 10px 14px; box-shadow: 0 1px 6px rgba(0,0,0,.04); border-top: 3px solid #3498db; }
+  .kpi-card.c1 { border-top-color: #3498db; } .kpi-card.c1 .value { color: #3498db; }
+  .kpi-card.c2 { border-top-color: #27ae60; } .kpi-card.c2 .value { color: #27ae60; }
+  .kpi-card.c3 { border-top-color: #e67e22; } .kpi-card.c3 .value { color: #e67e22; }
+  .kpi-card.c4 { border-top-color: #8e44ad; } .kpi-card.c4 .value { color: #8e44ad; }
+  .kpi-card .label { font-size: 10px; color: #999; margin-bottom: 2px; }
+  .kpi-card .value { font-size: 20px; font-weight: 800; }
+  .kpi-card .extra { font-size: 10px; color: #aaa; margin-top: 1px; }
+  .kpi-card .unit { font-size: 12px; font-weight: 400; opacity: .6; }
+  .kpi-card .person-month { font-size: 11px; font-weight: 400; opacity: .55; margin-left: 6px; }
+  .kpi-card .person-month span { font-weight: 600; opacity: 1; }
+
+  /* Charts */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .chart-grid-full { grid-column: 1 / -1; }
+  .chart-card { background: #fff; border-radius: 8px; padding: 10px 14px; box-shadow: 0 1px 6px rgba(0,0,0,.04); position: relative; overflow: auto; min-width: 200px; min-height: 100px; }
+  .chart-card h3 { font-size: 11px; font-weight: 600; color: #555; margin-bottom: 6px; }
+  .chart-card canvas { width: 100% !important; max-height: none; }
+  .resizable-card { position: relative; overflow: auto; min-width: 400px; min-height: 150px; }
+  .resize-handle { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: se-resize; z-index: 10; }
+  .resize-handle::before, .resize-handle::after { content: ''; position: absolute; background: #ccc; border-radius: 1px; }
+  .resize-handle::before { right: 3px; bottom: 3px; width: 8px; height: 2px; }
+  .resize-handle::after { right: 3px; bottom: 3px; width: 2px; height: 8px; }
+  .resizable-card canvas { max-height: none; }
+  .chart-full { grid-column: 1 / -1; }
+
+  /* Table */
+  .table-card { background: #fff; border-radius: 8px; padding: 10px 14px; box-shadow: 0 1px 6px rgba(0,0,0,.04); overflow-x: auto; margin-bottom: 10px; }
+  .table-card h3 { font-size: 11px; font-weight: 600; color: #555; margin-bottom: 6px; }
+  .table-card .meta { font-size: 10px; color: #999; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid #f0f0f0; }
+  th { background: #fafbfc; font-weight: 600; color: #666; white-space: nowrap; position: sticky; top: 0; }
+  tr:hover { background: #f5f7ff; }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 6px; font-size: 10px; font-weight: 600; }
+  .tag-high { background: #ffeaea; color: #e74c3c; }
+  .tag-medium { background: #fff4e6; color: #e67e22; }
+  .tag-low { background: #eafff2; color: #27ae60; }
+  .table-wrap { max-height: 240px; overflow-y: auto; }
+  .cost-analysis-grid { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .analysis-panel { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 220px; }
+  .analysis-card { background: #fff; border-radius: 8px; padding: 10px 12px; box-shadow: 0 1px 6px rgba(0,0,0,.04); overflow: auto; resize: both; min-width: 200px; min-height: 80px; cursor: se-resize; position: relative; flex-shrink: 0; }
+  .analysis-card::after { content: '↘'; position: absolute; right: 4px; bottom: 2px; color: #ddd; font-size: 12px; pointer-events: none; }
+  .analysis-card h3 { font-size: 11px; font-weight: 600; color: #333; margin-bottom: 6px; border-bottom: 1px solid #f0f0f0; padding-bottom: 4px; }
+  .analysis-content { font-size: 11px; color: #555; line-height: 1.6; }
+  .analysis-content .item { margin-bottom: 4px; padding-left: 8px; border-left: 2px solid #e8e8e8; }
+  .analysis-content .tag-pos { display: inline-block; background: #eafff2; color: #27ae60; font-size: 10px; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+  .analysis-content .tag-neg { display: inline-block; background: #ffeaea; color: #e74c3c; font-size: 10px; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+  .analysis-content .val { font-weight: 600; color: #333; }
+  .analysis-content .dim-title { display:block; font-weight:bold; color:#555; border-bottom:1px solid #eee; padding-bottom:4px; margin:8px 0 4px; }
+
+  /* Chat */
+  .chat-msg { margin-bottom:8px; padding:6px 10px; border-radius:8px; font-size:12px; line-height:1.6; max-width:85%; }
+  .chat-msg-user { background:#3498db; color:#fff; margin-left:auto; border-bottom-right-radius:2px; }
+  .chat-msg-ai { background:#f0f2f5; color:#333; border-bottom-left-radius:2px; }
+  .chat-msg-ai table { border-collapse: collapse; margin: 6px 0; font-size: 11px; width: 100%; }
+  .chat-msg-ai th, .chat-msg-ai td { border: 1px solid #ddd; padding: 3px 8px; text-align: left; }
+  .chat-msg-ai th { background: #f5f6fa; font-weight: 600; }
+  .chat-msg-ai ul, .chat-msg-ai ol { margin: 4px 0; padding-left: 20px; }
+  .chat-msg-ai li { margin: 2px 0; }
+  .chat-msg-ai code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+  .chat-msg-ai pre { background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto; margin: 6px 0; }
+  .chat-msg-ai pre code { background: none; padding: 0; }
+  .chat-msg-ai strong { color: #2c3e50; }
+  .chat-msg-ai p { margin: 4px 0; }
+  .chat-msg-user + .chat-msg-ai { margin-top:4px; }
+
+  .refresh-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.6); z-index: 50; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #666; pointer-events: none; }
+
+  .cost-table-wrap { overflow: visible; }
+  #costTable th, #costTable td { position: relative; }
+  #costTable th { position: sticky; top: 0; z-index: 3; background: #f5f6fa; }
+  #costTable th:first-child, #costTable td:first-child { position: sticky; left: 0; z-index: 4; background: #fff; box-shadow: 2px 0 4px rgba(0,0,0,.06); }
+  #costTable th:first-child { z-index: 5; background: #f5f6fa; }
+  #costTable th:nth-child(2), #costTable td:nth-child(2) { position: sticky; left: 120px; z-index: 4; background: #fff; box-shadow: 2px 0 4px rgba(0,0,0,.06); }
+  #costTable th:nth-child(2) { z-index: 5; background: #f5f6fa; }
+  #costTable tbody tr:hover td { background: #f5f7ff; }
+  #costTable tbody tr:hover td:first-child { background: #f5f7ff; }
+  #costTable tbody tr:hover td:nth-child(2) { background: #f5f7ff; }
+  .cost-total-row td { font-weight: 700; background: #ecf0f1 !important; }
+  .cost-total-row td:first-child { background: #ecf0f1 !important; }
+  .cost-total-row td:nth-child(2) { background: #ecf0f1 !important; }
+  .cost-desc { font-size: 11px; color: #666; margin-bottom: 6px; line-height: 1.6; padding: 6px 8px; background: #f8f9fa; border-radius: 4px; border-left: 3px solid #3498db; }
+  .cost-desc .highlight { color: #e74c3c; font-weight: 600; }
+  .cost-desc .unit { color: #999; font-size: 10px; }
+  #costTable { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: auto; }
+  #costTable th, #costTable td { text-align: center; padding: 3px 2px; border-bottom: 1px solid #e8e8e8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #costTable td:first-child, #costTable th:first-child { text-align: left; min-width: 120px; max-width: 180px; white-space: nowrap; font-weight: 600; }
+  #costTable td:nth-child(2), #costTable th:nth-child(2) { width: 50px; text-align: right; font-weight: 700; }
+  #costTable th { background: #f5f6fa; font-weight: 600; color: #555; font-size: 10px; }
+  #costTable tbody tr:hover { background: #f5f7ff; }
+  .cost-row-top1 td:first-child { background: #8e44ad !important; color: #fff !important; font-weight: 700; }
+  .cost-row-top2 td:first-child { background: #3498db !important; color: #fff !important; font-weight: 700; }
+  .cost-row-top3 td:first-child { background: #1abc9c !important; color: #fff !important; font-weight: 700; }
+  .cost-cell-top1 { background: #e74c3c !important; color: #fff !important; font-weight: 600; }
+  .cost-cell-top2 { background: #f39c12 !important; color: #fff !important; font-weight: 600; }
+  .cost-cell-top3 { background: #ffeaa7 !important; font-weight: 600; }
+  .cost-cell-mid { background: #dfe6e9 !important; }
+  .cost-cell-low { background: #f0f0f0 !important; }
+  .cost-cell-zero { color: #ccc; }
+  .cost-total-row { background: #ecf0f1 !important; font-weight: 700; }
+
+  /* Business checkbox dropdown */
+  .biz-opt { display:flex; align-items:center; gap:6px; padding:4px 10px; cursor:pointer; font-size:11px; }
+  .biz-opt:hover { background:#f0f6ff; }
+  .biz-opt input[type=checkbox] { margin:0; accent-color:#3498db; }
+
+  .footer { text-align: center; padding: 6px; font-size: 9px; color: #bbb; }
+  @media (max-width: 1100px) {
+    .cost-analysis-grid { flex-direction: column; }
+    .cost-analysis-grid .chart-card { min-width: unset !important; }
+  }
+  @media (max-width: 800px) {
+    body { overflow-x: hidden; }
+    .header { padding: 10px 12px; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+    .header-left { min-width: 0; }
+    .header-right { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .tab-nav { padding: 0 8px; }
+    .tab-btn { padding: 10px 14px; }
+    .container { padding: 8px; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .chart-grid { grid-template-columns: minmax(0, 1fr); min-width: 0; width: 100%; }
+    .cost-analysis-grid { flex-direction: column; min-width: 0; width: 100%; }
+    .cost-analysis-grid .chart-card, .resizable-card { min-width: 0 !important; width: 100% !important; max-width: 100%; }
+    .analysis-panel { min-width: 0; width: 100%; }
+    .analysis-card { min-width: 0; width: 100%; resize: vertical; }
+    .cost-table-wrap, .table-wrap { max-width: 100%; overflow-x: auto; }
+    .table-card { width: 100%; max-width: 100%; }
+    #pagination { overflow-x: auto; flex-wrap: nowrap; }
+    .forecast-container { padding: 10px 8px; }
+    .forecast-header { align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+    .forecast-heatmap { padding: 12px 8px; }
+  }
+  .biz-tree-node { padding:1px 0; }
+  .biz-tree-label { display:flex;align-items:center;gap:4px;padding:2px 8px;cursor:pointer;font-size:12px;white-space:nowrap; }
+  .biz-tree-label:hover { background:#f0f6ff; }
+  .biz-tree-toggle { display:inline-block;width:14px;text-align:center;font-size:10px;color:#999;cursor:pointer;user-select:none;flex-shrink:0; }
+  .biz-tree-toggle:hover { color:#333; }
+  .biz-tree-children { padding-left:16px; }
+  .biz-tree-node.search-hidden { display:none; }
+  .biz-tree-node.search-match > .biz-tree-label { background:#fff8e1; }
+
+  /* Forecast Tab */
+  .forecast-container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+  .forecast-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .forecast-header h2 { font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: .3px; }
+  .forecast-meta { font-size: 11px; color: #94a3b8; }
+  .forecast-callout { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #7dd3fc; border-left: 4px solid #0284c7; border-radius: 10px; padding: 18px 22px; margin-bottom: 20px; font-size: 13px; line-height: 1.9; color: #1e293b; }
+  .forecast-callout strong { color: #dc2626; font-weight: 700; }
+  .forecast-section { background: #fff; border-radius: 10px; padding: 18px 22px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.04); border: 1px solid #e8ecf1; transition: box-shadow .2s; }
+  .forecast-section:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+  .forecast-section .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
+  .forecast-section h3 { font-size: 14px; font-weight: 700; color: #1e293b; margin: 0; }
+  .forecast-section .section-actions { display: flex; gap: 4px; }
+  .btn-sec { width: 24px; height: 24px; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+  .btn-sec:hover { background: #e8e8e8; }
+  .btn-sec-del { color: #e74c3c; border-color: #f5c6cb; }
+  .btn-sec-del:hover { background: #fdecea; }
+  .forecast-section .content { font-size: 12px; line-height: 1.8; color: #444; }
+  .forecast-section .content strong { color: #2c3e50; }
+  .forecast-heatmap { overflow-x: auto; margin-bottom: 20px; background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,.06); border: 1px solid #e8ecf1; }
+  .forecast-heatmap h3 { font-size: 15px; font-weight: 700; color: #1a2332; margin-bottom: 14px; letter-spacing: .3px; }
+  .forecast-heatmap table { border-collapse: separate; border-spacing: 0; width: 100%; border-radius: 6px; overflow: hidden; }
+  .forecast-heatmap th, .forecast-heatmap td { padding: 7px 10px; text-align: center; border: 1px solid #e8edf2; white-space: nowrap; font-size: 12px; }
+  .forecast-heatmap th { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%); font-weight: 600; color: #475569; font-size: 11px; position: sticky; top: 0; }
+  .forecast-heatmap td:first-child { text-align: left; font-weight: 600; position: sticky; left: 0; background: #fff; min-width: 150px; color: #334155; border-right: 1px solid #e2e8f0; }
+  .forecast-heatmap td:hover { transform: scale(1.04); z-index: 1; box-shadow: 0 2px 8px rgba(0,0,0,.1); position: relative; }
+  .forecast-heatmap td:first-child:hover { transform: none; box-shadow: none; }
+  .forecast-heatmap .col-year { font-weight: 700; border-left: 3px solid #94a3b8 !important; }
+  .forecast-heatmap th.col-year { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%) !important; color: #334155; }
+  .forecast-heatmap .row-total td, .forecast-heatmap .row-total-cell { font-weight: 700; border-top: 3px solid #94a3b8 !important; }
+  .forecast-heatmap .row-total td:first-child { background: #f8fafc !important; }
+  .forecast-heatmap th.forecast-col { background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%) !important; color: #92400e; }
+  .forecast-heatmap .forecast-col { font-style: normal; }
+  .forecast-heatmap .locked-col { opacity: 0.85; }
+  .forecast-heatmap th.locked-col { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%) !important; color: #64748b; }
+  .window-status-bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; margin-bottom: 14px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #93c5fd; border-radius: 8px; font-size: 12px; color: #1e40af; }
+  .window-status-bar .ws-label { font-weight: 700; }
+  .window-status-bar .ws-open { color: #166534; background: #bbf7d0; padding: 3px 10px; border-radius: 12px; font-weight: 600; font-size: 11px; }
+  .window-status-bar .ws-closed { color: #92400e; background: #fde68a; padding: 3px 10px; border-radius: 12px; font-weight: 600; font-size: 11px; }
+  .forecast-edit-bar { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; }
+  .forecast-edit-bar .btn { padding: 8px 18px; border-radius: 8px; font-size: 12px; cursor: pointer; border: none; font-weight: 600; transition: all .2s; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .forecast-edit-bar .btn:active { transform: scale(.96); }
+  .forecast-edit-bar .btn-edit { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
+  .forecast-edit-bar .btn-edit:hover { background: linear-gradient(135deg, #d97706, #b45309); box-shadow: 0 3px 8px rgba(217,119,6,.3); }
+  .forecast-edit-bar .btn-save { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
+  .forecast-edit-bar .btn-save:hover { background: linear-gradient(135deg, #059669, #047857); box-shadow: 0 3px 8px rgba(5,150,105,.3); }
+  .forecast-edit-bar .btn-cancel { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+  .forecast-edit-bar .btn-cancel:hover { background: #e2e8f0; color: #475569; }
+  .btn-history { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 10px; font-size: 11px; color: #64748b; cursor: pointer; margin-left: 8px; transition: all .2s; }
+  .btn-history:hover { background: #e2e8f0; color: #334155; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .version-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,.5); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+  .version-modal-content { background: #fff; border-radius: 16px; width: 90%; max-width: 720px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+  .version-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid #f1f5f9; }
+  .version-modal-header h3 { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; }
+  .version-modal-body { overflow-y: auto; padding: 14px 22px; flex: 1; }
+  .version-item { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; transition: border-color .2s, box-shadow .2s; }
+  .version-item:hover { border-color: #93c5fd; box-shadow: 0 2px 8px rgba(59,130,246,.1); }
+  .version-item-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .version-item-time { font-size: 12px; font-weight: 600; color: #1e293b; }
+  .version-item-user { font-size: 10px; color: #94a3b8; }
+  .version-item-changes { font-size: 11px; color: #475569; line-height: 1.7; }
+  .version-item-changes .change-field { display: inline-block; background: #dbeafe; color: #1d4ed8; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-right: 4px; font-weight: 500; }
+  .version-item-expand { font-size: 10px; color: #3b82f6; cursor: pointer; border: none; background: none; margin-top: 4px; font-weight: 500; }
+  .version-item-expand:hover { color: #1d4ed8; }
+  .version-item-detail { display: none; margin-top: 8px; padding: 10px; background: #f8fafc; border-radius: 6px; font-size: 11px; white-space: pre-wrap; max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; }
+  .sub-tab-nav { display: flex; gap: 0; border-bottom: 2px solid #e8ecf1; margin-bottom: 16px; }
+  .sub-tab-btn { padding: 8px 18px; border: none; background: none; font-size: 13px; font-weight: 600; color: #7f8c8d; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .2s; }
+  .sub-tab-btn:hover { color: #2c3e50; background: #f8f9fa; }
+  .sub-tab-btn.active { color: #e67e22; border-bottom-color: #e67e22; }
+  .sub-tab-content { display: none; }
+  .sub-tab-content.active { display: block; }
+  .demo-badge { background: #e8f4fd; color: #1769aa; border: 1px solid #b9dcf5; padding: 3px 9px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+  .demo-mode #logoutBtn, .demo-mode #tabAdminBtn, .demo-mode .forecast-edit-bar { display: none !important; }
+  .demo-mode #syncBtn { cursor: default; opacity: .75; }
+</style>
+</head>
+<body>
+<script src="./demo-runtime.js"></script>
+<div class="header">
+  <div class="header-left">
+    <h1>座舱 AI 资源统计与分析</h1>
+    <div class="sub" id="headerStatus">数据更新：<span id="updateTime">加载中...</span></div>
+  </div>
+  <div class="header-right">
+    <span class="demo-badge">公开演示 · 合成数据</span>
+    <div class="user-info" id="userInfo" style="display:none;">
+      <span id="userName"></span>
+      <span class="role" id="userRole"></span>
+    </div>
+    <button class="logout-btn" id="logoutBtn" style="display:none;" onclick="doLogout()">登出</button>
+  </div>
+</div>
+
+<!-- Tab 导航 -->
+<div class="tab-nav" id="tabNav" style="display:none;">
+  <button class="tab-btn active" onclick="switchTab('dashboard')">数据看板</button>
+  <button class="tab-btn" onclick="switchTab('forecast')">资源预测</button>
+  <button class="tab-btn" id="tabAdminBtn" style="display:none;" onclick="switchTab('admin')">管理后台</button>
+</div>
+
+<!-- 数据看板 Tab -->
+<div id="tabDashboard" class="tab-content active">
+  <!-- 操作栏 -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;background:#f8f9fa;padding:6px 14px;border-radius:8px;">
+    <button class="btn btn-primary" id="syncBtn" onclick="syncFromMeego()">
+      <span id="syncBtnText">演示数据（固定快照）</span>
+    </button>
+    <div id="syncProgressBox" style="display:none;background:#f0f0f0;border:1px solid #ddd;border-radius:6px;padding:5px 12px;flex:1;max-width:500px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="syncStep" style="font-size:10px;font-weight:600;"></span>
+        <span id="syncElapsed" style="font-size:10px;color:#999;"></span>
+        <div style="flex:1;background:#ddd;border-radius:4px;height:6px;overflow:hidden;min-width:60px;max-width:140px;">
+          <div id="syncProgressBar" style="height:100%;background:#e67e22;border-radius:4px;transition:width .3s;width:0%"></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:3px;">
+        <span id="syncCountdown" style="font-size:10px;color:#e67e22;"></span>
+        <span id="syncDetail" style="font-size:9px;color:#999;"></span>
+      </div>
+    </div>
+    <span id="lastSyncInfo" style="font-size:10px;color:#999;margin-left:auto;"></span>
+  </div>
+
+  <!-- 筛选栏 -->
+  <div class="filter-bar">
+    <div class="filter-row">
+      <label>日期区间</label>
+      <input type="date" id="dateStart">
+      <span style="color:#999;font-size:12px;">至</span>
+      <input type="date" id="dateEnd">
+      <span style="color:#999;font-size:12px;margin-left:8px;">快速选择：</span>
+      <button class="btn btn-preset" onclick="setRange('2025')">2025年全年</button>
+      <button class="btn btn-preset" onclick="setRange('2026')">2026年全年</button>
+      <button class="btn btn-preset" onclick="setRange('2027')">2027年全年</button>
+      <button class="btn btn-preset" onclick="setRange('all')">全部</button>
+      <div style="margin-left:auto;">
+        <button class="btn btn-primary" onclick="refreshDashboard()" style="background:#2ecc71;">查询</button>
+      </div>
+    </div>
+    <div class="filter-row">
+      <label>所属业务</label>
+      <div id="bizDropdown" style="position:relative;display:inline-block;">
+        <div id="bizTrigger" onclick="toggleBizDropdown()" style="min-width:140px;min-height:28px;padding:3px 10px;border:1px solid #ddd;border-radius:4px;font-size:11px;cursor:pointer;background:#fff;display:flex;align-items:center;gap:4px;">
+          <span id="bizLabel" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#999;">全部</span>
+          <span style="font-size:8px;color:#999;">▼</span>
+        </div>
+        <div id="bizPanel" style="display:none;position:absolute;top:30px;left:0;z-index:100;background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.12);max-height:320px;overflow-y:auto;min-width:260px;padding:4px 0;">
+          <div style="padding:4px 10px;border-bottom:1px solid #eee;">
+            <input type="text" id="bizSearch" placeholder="搜索业务..." oninput="filterBizTree()" style="width:100%;font-size:11px;padding:2px 6px;border:1px solid #ddd;border-radius:3px;outline:none;box-sizing:border-box;">
+          </div>
+          <div id="bizOptions" style="padding:2px 0;"></div>
+        </div>
+      </div>
+      <button class="btn btn-preset" onclick="bizSelectAll()" style="font-size:10px;">全选</button>
+      <button class="btn btn-preset" onclick="bizClearAll()" style="font-size:10px;">清空</button>
+      <button class="btn btn-preset" onclick="toggleBusinessInverse()" title="反选" style="font-size:10px;" id="businessInverseBtn">反选</button>
+      <label style="margin-left:16px;">是否跨域</label>
+      <div class="toggle-group" id="crossDomainToggle">
+        <button class="toggle-opt active" data-value="" onclick="setCrossDomain(this)">全部</button>
+        <button class="toggle-opt" data-value="是" onclick="setCrossDomain(this)">是</button>
+        <button class="toggle-opt" data-value="否" onclick="setCrossDomain(this)">否</button>
+      </div>
+    </div>
+  </div>
+  <div style="font-size:10px;color:#aaa;margin:-6px 0 8px 14px;line-height:1.6;">公开演示使用合成数据快照。筛选逻辑：日期区间 × 所属业务（多选/反选）× 是否跨域，三个条件取交集。修改筛选后点击「查询」，下方 KPI、资源分布图表、数据总结、当前亮点、问题洞察、AI 数据问答、月度估分趋势、工作项明细全部同步刷新。</div>
+
+  <!-- KPI -->
+  <div class="section-title">核心指标</div>
+  <div class="kpi-row">
+    <div class="kpi-card c1"><div class="label">总估分</div><div class="value"><span id="kpiTotal">-</span><span class="unit"> 人天</span><span class="person-month">≈ <span id="kpiTotalPM">-</span> 人月</span></div><div class="extra" id="kpiCountDesc">-</div></div>
+    <div class="kpi-card c2"><div class="label">已完成估分</div><div class="value"><span id="kpiDone">-</span><span class="unit"> 人天</span><span class="person-month">≈ <span id="kpiDonePM">-</span> 人月</span></div><div class="extra">完成率 <span id="kpiRate">-</span>（<span id="kpiDoneCount">-</span> 项）</div></div>
+    <div class="kpi-card c3"><div class="label">进行中估分</div><div class="value"><span id="kpiWIP">-</span><span class="unit"> 人天</span><span class="person-month">≈ <span id="kpiWIPPM">-</span> 人月</span></div><div class="extra">占比 <span id="kpiWIPRate">-</span>（<span id="kpiWIPCount">-</span> 项）</div></div>
+    <div class="kpi-card c4"><div class="label">平均估分/项</div><div class="value"><span id="kpiAvg">-</span><span class="unit"> 人天</span></div><div class="extra">中位数 <span id="kpiMed">-</span><span class="unit"> 人天</span></div></div>
+  </div>
+
+  <!-- Distribution Charts -->
+  <div class="section-title">资源分布</div>
+  <div class="chart-grid">
+    <div class="cost-analysis-grid" style="grid-column:1/-1">
+      <div class="chart-card resizable-card" style="flex:3;min-width:400px"><h3>按车型成本归类（含月度明细）</h3><div id="costDesc" class="cost-desc"></div><div class="cost-table-wrap"><table id="costTable"><thead id="costTableHead"></thead><tbody id="costTableBody"></tbody></table></div><div class="resize-handle"></div></div>
+      <div class="analysis-panel">
+        <div class="analysis-card"><h3>📊 数据总结</h3><div id="analysisSummary" class="analysis-content">分析中...</div></div>
+        <div class="analysis-card"><h3>✅ 当前亮点，继续保持</h3><div id="analysisHighlights" class="analysis-content">分析中...</div></div>
+        <div class="analysis-card"><h3>⚠️ 问题洞察，改进提升</h3><div id="analysisIssues" class="analysis-content">分析中...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI 数据问答 -->
+  <div class="section-title">AI 数据问答</div>
+  <div class="chart-card" style="cursor:default;resize:none;overflow:visible;">
+    <div style="font-size:10px;color:#999;margin-bottom:6px;">模型: <span id="modelName">加载中...</span></div>
+    <div id="chatMessages" style="max-height:300px;overflow-y:auto;margin-bottom:8px;padding:4px 0;"></div>
+    <div style="display:flex;gap:8px;">
+      <textarea id="chatInput" rows="2" placeholder="输入问题，Enter 发送，Shift+Enter 换行" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px;resize:none;font-family:inherit;"></textarea>
+      <button id="chatSendBtn" onclick="sendChat()" class="btn btn-primary" style="align-self:flex-end;">发送</button>
+    </div>
+  </div>
+
+  <!-- 按月度 -->
+  <div class="chart-grid">
+    <div class="chart-card chart-full"><h3>按月度</h3><canvas id="chartMonth" height="100"></canvas></div>
+  </div>
+
+  <!-- Trend -->
+  <div class="section-title">月度估分趋势</div>
+  <div class="chart-grid">
+    <div class="chart-card chart-full"><h3>月度估分趋势</h3><canvas id="chartTrend" height="80"></canvas></div>
+  </div>
+
+  <!-- Table -->
+  <div class="section-title">工作项明细</div>
+  <div class="table-card">
+    <div class="meta" id="tableMeta">显示当前筛选范围内的工作项</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>ID</th><th>需求名称</th><th>成本归类</th><th>估分(人天)</th><th>优先级</th><th>状态</th><th>提出时间</th><th>完成时间</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div id="pagination" style="display:flex;align-items:center;gap:8px;padding:8px 0;font-size:11px;color:#666;">
+      <span id="pageInfo"></span>
+      <button class="btn btn-preset" onclick="tablePageFirst()" id="btnFirst">首页</button>
+      <button class="btn btn-preset" onclick="tablePagePrev()" id="btnPrev">上一页</button>
+      <span id="pageNumbers"></span>
+      <button class="btn btn-preset" onclick="tablePageNext()" id="btnNext">下一页</button>
+      <button class="btn btn-preset" onclick="tablePageLast()" id="btnLast">末页</button>
+      <span style="margin-left:12px;">每页</span>
+      <select onchange="tablePageSizeChange(this.value)" style="padding:2px 6px;border:1px solid #ddd;border-radius:4px;font-size:11px;">
+        <option value="50">50</option>
+        <option value="100" selected>100</option>
+        <option value="200">200</option>
+        <option value="500">500</option>
+      </select>
+      <span>条</span>
+    </div>
+  </div>
+
+  <div class="footer">座舱 AI 资源统计与分析 · 公开演示合成数据</div>
+</div>
+
+<!-- 资源预测 Tab -->
+<div id="tabForecast" class="tab-content" style="display:none;">
+  <div class="forecast-container">
+    <!-- 子 Tab 导航 -->
+    <div class="sub-tab-nav">
+      <button class="sub-tab-btn active" onclick="switchSubTab('vehicle')">车型</button>
+      <button class="sub-tab-btn" onclick="switchSubTab('os')">OS</button>
+      <button class="sub-tab-btn" onclick="switchSubTab('platform')">平台</button>
+    </div>
+
+    <!-- 子 Tab: 车型 -->
+    <div id="subTabVehicle" class="sub-tab-content active">
+      <div class="forecast-header">
+        <h2 id="forecastTitle">2026年全年车型项目资源投入分析报告</h2>
+        <div class="forecast-meta">
+          更新时间：<span id="forecastUpdated">-</span>
+          <button class="btn-history" onclick="showVersionHistory()" title="版本历史">📋 历史版本</button>
+        </div>
+      </div>
+      <div class="forecast-edit-bar" id="forecastEditBar" style="display:none;">
+        <button class="btn btn-edit" id="forecastEditBtn" onclick="toggleForecastEdit()">编辑报告</button>
+        <button class="btn btn-save" id="forecastSaveBtn" style="display:none;" onclick="saveForecast()">保存</button>
+        <button class="btn btn-cancel" id="forecastCancelBtn" style="display:none;" onclick="cancelForecastEdit()">取消</button>
+        <button class="btn btn-refresh" id="forecastRefreshBtn" onclick="triggerAutoRefresh('vehicle')" style="margin-left:auto;background:#2ecc71;color:#fff;">刷新数据</button>
+        <span class="refresh-status" id="forecastRefreshStatus" style="font-size:12px;color:#666;margin-left:8px;"></span>
+      </div>
+      <div class="forecast-callout" id="forecastSummary"></div>
+      <div class="window-status-bar" id="windowStatusBar" style="display:none;">
+        <span class="ws-label">窗口期：</span>
+        <span id="wsStatus"></span>
+        <span style="margin-left:auto;color:#666;" id="wsNextAdvance"></span>
+      </div>
+      <div id="forecastAlertsBanner" style="display:none;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #f59e0b;border-left:4px solid #d97706;border-radius:10px;padding:14px 18px;margin-bottom:14px;">
+        <div style="font-weight:700;color:#92400e;margin-bottom:6px;font-size:13px;">⚠️ 峰值预警</div>
+        <div id="forecastAlertsContent" style="font-size:12px;color:#78350f;line-height:1.8;"></div>
+      </div>
+      <div class="forecast-heatmap" id="forecastHeatmap">
+        <h3>各车型月度资源投入热力图（单位：人天）</h3>
+        <div id="forecastHeatmapImg" style="overflow-x:auto;margin-bottom:12px;"><img id="forecastHeatmapPng" src="./assets/forecast_heatmap_vehicle.png" alt="车型资源投入热力图" style="width:100%;max-width:1200px;border-radius:6px;border:1px solid #eee;" onerror="this.parentElement.style.display='none'"></div>
+        <details open style="margin-top:8px;">
+          <summary style="cursor:pointer;font-size:11px;color:#666;user-select:none;">数据明细表</summary>
+          <div style="overflow-x:auto;margin-top:8px;"><table id="forecastHeatTable"></table></div>
+          <div id="forecastMergeNote" style="margin-top:12px;padding:12px 16px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:8px;font-size:12px;color:#475569;line-height:2;border:1px solid #e2e8f0;"></div>
+        </details>
+      </div>
+      <div id="forecastSections"></div>
+    </div>
+
+    <!-- 子 Tab: OS -->
+    <div id="subTabOs" class="sub-tab-content" style="display:none;">
+      <div class="forecast-header">
+        <h2 id="forecastOsTitle">2026年全年OS资源投入分析报告</h2>
+        <div class="forecast-meta">
+          更新时间：<span id="forecastOsUpdated">-</span>
+          <button class="btn-history" onclick="showVersionHistory('os')" title="版本历史">📋 历史版本</button>
+        </div>
+      </div>
+      <div class="forecast-edit-bar" id="forecastOsEditBar" style="display:none;">
+        <button class="btn btn-edit" id="forecastOsEditBtn" onclick="toggleForecastEdit('os')">编辑报告</button>
+        <button class="btn btn-save" id="forecastOsSaveBtn" style="display:none;" onclick="saveForecast('os')">保存</button>
+        <button class="btn btn-cancel" id="forecastOsCancelBtn" style="display:none;" onclick="cancelForecastEdit('os')">取消</button>
+      </div>
+      <div class="forecast-callout" id="forecastOsSummary"></div>
+      <div class="forecast-heatmap">
+        <h3>各模块月度资源投入热力图（单位：人天）</h3>
+        <p style="color:#888;font-size:12px;margin:-8px 0 8px 0;">⚠️ 注：各模块合计人天来自源文档，月度分布为根据文档描述的启动节奏和时间特征估算，仅供趋势参考。</p>
+        <div style="overflow-x:auto;"><table id="forecastOsHeatTable"></table></div>
+      </div>
+      <div id="forecastOsSections"></div>
+    </div>
+
+    <!-- 子 Tab: 平台 -->
+    <div id="subTabPlatform" class="sub-tab-content" style="display:none;">
+      <div class="forecast-header">
+        <h2 id="forecastPlatformTitle">2026年全年平台资源投入分析报告</h2>
+        <div class="forecast-meta">
+          更新时间：<span id="forecastPlatformUpdated">-</span>
+          <button class="btn-history" onclick="showVersionHistory('platform')" title="版本历史">📋 历史版本</button>
+        </div>
+      </div>
+      <div class="forecast-edit-bar" id="forecastPlatformEditBar" style="display:none;">
+        <button class="btn btn-edit" id="forecastPlatformEditBtn" onclick="toggleForecastEdit('platform')">编辑报告</button>
+        <button class="btn btn-save" id="forecastPlatformSaveBtn" style="display:none;" onclick="saveForecast('platform')">保存</button>
+        <button class="btn btn-cancel" id="forecastPlatformCancelBtn" style="display:none;" onclick="cancelForecastEdit('platform')">取消</button>
+      </div>
+      <div class="forecast-callout" id="forecastPlatformSummary"></div>
+      <div class="forecast-heatmap">
+        <h3>各平台月度资源投入热力图（单位：人天）</h3>
+        <div style="overflow-x:auto;"><table id="forecastPlatformHeatTable"></table></div>
+      </div>
+      <div id="forecastPlatformSections"></div>
+    </div>
+
+    <div class="footer">资源预测报告 · 公开演示合成数据</div>
+  </div>
+</div>
+
+<!-- 版本历史弹窗 -->
+<div id="versionModal" class="version-modal" style="display:none;">
+  <div class="version-modal-content">
+    <div class="version-modal-header">
+      <h3>版本历史</h3>
+      <button onclick="closeVersionModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#999;">&times;</button>
+    </div>
+    <div class="version-modal-body" id="versionList"></div>
+  </div>
+</div>
+
+<!-- 管理后台 Tab -->
+<div id="tabAdmin" class="tab-content" style="display:none;">
+  <div class="container">
+    <!-- 管理后台子Tab导航 -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid #eee;padding-bottom:8px;">
+      <button class="btn" onclick="switchAdminSub('config')" id="adminSubConfig" style="font-weight:bold;">预测配置</button>
+      <button class="btn" onclick="switchAdminSub('ops')" id="adminSubOps">操作面板</button>
+      <button class="btn" onclick="switchAdminSub('log')" id="adminSubLog">运行日志</button>
+      <button class="btn" onclick="switchAdminSub('source')" id="adminSubSource">数据源</button>
+      <button class="btn" onclick="switchAdminSub('login')" id="adminSubLogin">登录日志</button>
+    </div>
+
+    <!-- 子面板：预测配置 -->
+    <div id="adminPanelConfig" class="admin-panel">
+      <div class="section-title">预测配置管理</div>
+      <div id="adminConfigContent" style="padding:10px;">
+        <div style="text-align:center;color:#999;">加载中...</div>
+      </div>
+    </div>
+
+    <!-- 子面板：操作面板 -->
+    <div id="adminPanelOps" class="admin-panel" style="display:none;">
+      <div class="section-title">操作面板</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;padding:10px;" id="adminOpsContent">
+      </div>
+      <div id="adminOpsResult" style="margin-top:12px;padding:10px;border-radius:6px;display:none;"></div>
+    </div>
+
+    <!-- 子面板：运行日志 -->
+    <div id="adminPanelLog" class="admin-panel" style="display:none;">
+      <div class="section-title">运行日志</div>
+      <div class="table-card" style="resize:vertical;overflow:auto;min-height:120px;position:relative;">
+        <div class="table-wrap" style="max-height:none;">
+          <table>
+            <thead><tr><th>#</th><th>时间</th><th>操作</th><th>维度</th><th>结果</th><th>详情</th><th>耗时</th></tr></thead>
+            <tbody id="adminRunLogBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 子面板：数据源监控 -->
+    <div id="adminPanelSource" class="admin-panel" style="display:none;">
+      <div class="section-title">数据源监控</div>
+      <div id="adminSourceContent" style="padding:10px;"></div>
+    </div>
+
+    <!-- 子面板：登录日志 -->
+    <div id="adminPanelLogin" class="admin-panel" style="display:none;">
+      <div class="section-title">登录日志</div>
+      <div class="table-card" style="resize:vertical;overflow:auto;min-height:120px;position:relative;">
+        <div class="meta" id="loginLogMeta2">最近登录记录</div>
+        <div class="table-wrap" style="max-height:none;">
+          <table>
+            <thead><tr><th>#</th><th>时间</th><th>用户名</th><th>角色</th><th>IP 地址</th><th>结果</th></tr></thead>
+            <tbody id="loginLogBody2"></tbody>
+          </table>
+        </div>
+        <div style="position:absolute;right:4px;bottom:2px;color:#ccc;font-size:12px;pointer-events:none;">↘</div>
+      </div>
+    </div>
+
+    <div class="footer">PMO AI Resource Dashboard · 管理后台</div>
+  </div>
+</div>
+
+<script>
+let RAW_DATA = [];
+let FILTERED = [];
+let DATE_START = null;
+let DATE_END = null;
+let charts = {};
+let DAILY_DATA = null;
+let MONTHLY_DATA = null;
+let BIZ_DAILY_DATA = null;   // 三维聚合 [cat][business][date]
+let BIZ_MONTHLY_DATA = null; // 三维聚合 [cat][business][month]
+let BUSINESS_FILTER = [];  // empty = all
+let BUSINESS_INVERSE = false;  // inverse selection mode
+let CROSS_DOMAIN_FILTER = null;  // null=all, "是"=cross-domain, "否"=not
+let CHAT_HISTORY = [];
+let TABLE_PAGE = 1;
+let TABLE_PAGE_SIZE = 100;
+
+
+// ── Auth Check ──
+(function checkAuth() {
+  fetch('/api/auth/check').then(r => r.json()).then(d => {
+    if (!d.ok) {
+      window.location.href = '/login';
+      return;
+    }
+    // 显示用户信息
+    document.getElementById('userInfo').style.display = 'flex';
+    document.getElementById('logoutBtn').style.display = 'inline-block';
+    document.getElementById('userName').textContent = d.user;
+    const roleMap = {'admin': '管理员', 'operator': '用户'};
+    document.getElementById('userRole').textContent = roleMap[d.role] || d.role;
+    // 显示 Tab 导航
+    document.getElementById('tabNav').style.display = 'flex';
+    // 管理员显示管理后台 Tab + 预测编辑按钮
+    if (d.role === 'admin') {
+      document.getElementById('tabAdminBtn').style.display = 'inline-block';
+      document.getElementById('forecastEditBar').style.display = 'flex';
+      document.getElementById('forecastOsEditBar').style.display = 'flex';
+      document.getElementById('forecastPlatformEditBar').style.display = 'flex';
+      loadLoginLog();
+      loadAutoStatus();
+    }
+  }).catch(() => {
+    window.location.href = '/login';
+  });
+})();
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => {
+    c.classList.remove('active');
+    c.style.display = 'none';
+  });
+  if (tab === 'dashboard') {
+    document.getElementById('tabDashboard').classList.add('active');
+    document.getElementById('tabDashboard').style.display = 'block';
+    document.querySelectorAll('.tab-btn')[0].classList.add('active');
+  } else if (tab === 'forecast') {
+    document.getElementById('tabForecast').style.display = 'block';
+    document.getElementById('tabForecast').classList.add('active');
+    document.querySelectorAll('.tab-btn')[1].classList.add('active');
+    loadForecast();
+  } else if (tab === 'admin') {
+    document.getElementById('tabAdmin').style.display = 'block';
+    document.getElementById('tabAdmin').classList.add('active');
+    document.querySelectorAll('.tab-btn')[2].classList.add('active');
+    switchAdminSub('config');
+  }
+}
+
+// ── Forecast Tab ──
+let FORECAST_DATA = null;
+let FORECAST_EDITING = false;
+let FORECAST_LOADED = false;
+let FORECAST_OS_DATA = null;
+let FORECAST_OS_LOADED = false;
+let FORECAST_PLATFORM_DATA = null;
+let FORECAST_PLATFORM_LOADED = false;
+let CURRENT_SUB_TAB = 'vehicle';
+
+function switchSubTab(tab) {
+  CURRENT_SUB_TAB = tab;
+  document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.sub-tab-content').forEach(c => { c.classList.remove('active'); c.style.display = 'none'; });
+  const map = { vehicle: 0, os: 1, platform: 2 };
+  document.querySelectorAll('.sub-tab-btn')[map[tab]].classList.add('active');
+  if (tab === 'vehicle') {
+    document.getElementById('subTabVehicle').style.display = 'block';
+    document.getElementById('subTabVehicle').classList.add('active');
+    loadForecast();
+  } else if (tab === 'os') {
+    document.getElementById('subTabOs').style.display = 'block';
+    document.getElementById('subTabOs').classList.add('active');
+    loadForecastOs();
+  } else if (tab === 'platform') {
+    document.getElementById('subTabPlatform').style.display = 'block';
+    document.getElementById('subTabPlatform').classList.add('active');
+    loadForecastPlatform();
+  }
+}
+
+function loadForecast() {
+  if (FORECAST_LOADED) return;
+  fetch('/api/forecast').then(r => r.json()).then(data => {
+    if (data.error) { console.error(data.error); return; }
+    FORECAST_DATA = data;
+    FORECAST_LOADED = true;
+    renderForecast(data);
+  }).catch(e => console.error('加载预测报告失败:', e));
+}
+
+function loadForecastOs() {
+  if (FORECAST_OS_LOADED) return;
+  fetch('/api/forecast/os').then(r => r.json()).then(data => {
+    if (data.error) { console.error(data.error); return; }
+    FORECAST_OS_DATA = data;
+    FORECAST_OS_LOADED = true;
+    renderForecastSub(data, 'Os');
+  }).catch(e => console.error('加载OS预测报告失败:', e));
+}
+
+function loadForecastPlatform() {
+  if (FORECAST_PLATFORM_LOADED) return;
+  fetch('/api/forecast/platform').then(r => r.json()).then(data => {
+    if (data.error) { console.error(data.error); return; }
+    FORECAST_PLATFORM_DATA = data;
+    FORECAST_PLATFORM_LOADED = true;
+    renderForecastSub(data, 'Platform');
+  }).catch(e => console.error('加载平台预测报告失败:', e));
+}
+
+function renderForecastSub(data, suffix) {
+  document.getElementById(`forecast${suffix}Title`).textContent = data.title || '';
+  document.getElementById(`forecast${suffix}Updated`).textContent = data.updated_at || '-';
+  document.getElementById(`forecast${suffix}Summary`).innerHTML = markdownToHtml(data.summary || '');
+  renderHeatmapSub(data.heatmap, `forecast${suffix}HeatTable`);
+  renderForecastSectionsSub(data.sections || [], `forecast${suffix}Sections`);
+}
+
+function renderHeatmapSub(hm, tableId) {
+  if (!hm) return;
+  const { projects, months, data, total_by_project, total_by_month } = hm;
+  const actualMonths = hm.actual_months != null ? hm.actual_months : 5;
+  setHeatMax(data, total_by_month, total_by_project);
+  const yearTotal = total_by_month.reduce((a, b) => a + b, 0);
+
+  let html = '<table><thead><tr><th>项目</th>';
+  months.forEach((m, mi) => html += `<th class="${mi >= actualMonths ? 'forecast-col' : ''}">${m}${mi >= actualMonths ? 'E' : ''}</th>`);
+  html += '<th class="col-year">全年</th></tr></thead><tbody>';
+  projects.forEach((p, i) => {
+    html += `<tr><td>${p}</td>`;
+    data[i].forEach((v, mi) => {
+      const fcCls = mi >= actualMonths ? ' forecast-col' : '';
+      html += `<td class="${fcCls}" style="${heatStyle(v, 'detail')}">${v}</td>`;
+    });
+    html += `<td class="col-year" style="${heatStyle(total_by_project[i], 'year')}">${total_by_project[i]}</td></tr>`;
+  });
+  html += `<tr class="row-total"><td><strong>月度合计</strong></td>`;
+  total_by_month.forEach((v, mi) => {
+    const fcCls = mi >= actualMonths ? ' forecast-col' : '';
+    html += `<td class="row-total-cell${fcCls}" style="${heatStyle(v, 'month')}">${v}</td>`;
+  });
+  html += `<td class="col-year row-total-cell" style="${heatStyle(yearTotal, 'year')}">${yearTotal}</td></tr>`;
+  html += '</tbody></table>';
+
+  document.getElementById(tableId).innerHTML = html;
+}
+
+function renderForecastSectionsSub(sections, containerId) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = sections.map((s, i) => `
+    <div class="forecast-section" data-idx="${i}">
+      <div class="section-header">
+        <h3 class="section-title">${s.title}</h3>
+      </div>
+      <div class="content">${markdownToHtml(s.content)}</div>
+    </div>
+  `).join('');
+}
+
+function renderForecast(data) {
+  document.getElementById('forecastTitle').textContent = data.title || '';
+  document.getElementById('forecastUpdated').textContent = data.updated_at || '-';
+  document.getElementById('forecastSummary').innerHTML = markdownToHtml(data.summary || '');
+  renderHeatmap(data.heatmap);
+  renderForecastSections(data.sections || []);
+  // 刷新热力图PNG（防缓存）
+  const img = document.getElementById('forecastHeatmapPng');
+  if (img) img.src = './assets/forecast_heatmap_vehicle.png?t=' + Date.now();
+}
+
+function markdownToHtml(md) {
+  return md.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n- /g, '<br>• ')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+}
+
+function renderHeatmap(hm) {
+  if (!hm) return;
+  const { projects, months, data, total_by_project, total_by_month } = hm;
+  const actualMonths = hm.actual_months != null ? hm.actual_months : 5;
+  setHeatMax(data, total_by_month, total_by_project);
+  const yearTotal = total_by_month.reduce((a, b) => a + b, 0);
+
+  let html = '<table><thead><tr><th>项目</th>';
+  months.forEach((m, mi) => {
+    const isForecast = mi >= actualMonths;
+    const isLocked = mi < actualMonths;
+    const cls = (isLocked ? 'locked-col' : '') + (isForecast ? ' forecast-col' : '');
+    html += `<th class="${cls.trim()}">${isForecast ? m+'E' : m}</th>`;
+  });
+  html += '<th class="col-year">全年</th></tr></thead><tbody>';
+  projects.forEach((p, i) => {
+    html += `<tr><td>${p}</td>`;
+    data[i].forEach((v, mi) => {
+      const isLocked = mi < actualMonths;
+      const isForecast = mi >= actualMonths;
+      const cls = (isLocked ? ' locked-col' : '') + (isForecast ? ' forecast-col' : '');
+      html += `<td class="${cls}" style="${heatStyle(v, 'detail')}">${v}</td>`;
+    });
+    html += `<td class="col-year" style="${heatStyle(total_by_project[i], 'year')}">${total_by_project[i]}</td></tr>`;
+  });
+  html += `<tr class="row-total"><td><strong>月度合计</strong></td>`;
+  total_by_month.forEach((v, mi) => {
+    const isForecast = mi >= actualMonths;
+    const cls = isForecast ? ' forecast-col' : '';
+    html += `<td class="row-total-cell${cls}" style="${heatStyle(v, 'month')}">${v}</td>`;
+  });
+  html += `<td class="col-year row-total-cell" style="${heatStyle(yearTotal, 'year')}">${yearTotal}</td></tr>`;
+  html += '</tbody></table>';
+
+  document.getElementById('forecastHeatTable').innerHTML = html;
+  // 渲染合并备注
+  fetch('/api/forecast/config').then(r=>r.json()).then(cfg => {
+    const rules = cfg.vehicle && cfg.vehicle.merge_rules || {};
+    const noteEl = document.getElementById('forecastMergeNote');
+    if (!noteEl || Object.keys(rules).length === 0) return;
+    let html = '<b>车型合并说明：</b><br>';
+    for (const [target, sources] of Object.entries(rules)) {
+      const srcList = sources.filter(s => !s.includes('&'));
+      if (srcList.length > 0) {
+        html += `<span style="font-weight:600;">${target}</span> = ${srcList.join(' + ')}<br>`;
+      }
+    }
+    noteEl.innerHTML = html;
+  }).catch(()=>{});
+}
+
+// 绿色→黄色→橙色→红色。明细、月度合计、全年合计分别归一化，避免全年总量把明细压成一片绿色。
+// 颜色锚点：正绿→黄绿→黄→橙→橙红→正红，全程
+const _colorAnchors = [
+  [0,    [0,200,0]],    // pos=0: 正绿
+  [0.10, [120,210,0]],  // 黄绿
+  [0.20, [220,220,0]],  // 纯黄
+  [0.30, [255,160,0]],  // 橙
+  [0.38, [255,80,0]],   // 橙红
+  [0.42, [220,0,0]],    // 正红
+  [0.55, [220,0,0]],    // 正红保持（高值区域拉伸）
+  [0.70, [220,0,0]],    // 正红保持
+  [0.85, [220,0,0]],    // 正红保持
+  [1.0,  [220,0,0]]     // 正红到顶
+];
+
+let _heatScales = {
+  detail: { max: 5000, breaks: [], pos: [] },
+  month: { max: 5000, breaks: [], pos: [] },
+  year: { max: 40000, breaks: [], pos: [] }
+};
+function _ceilNice(v) {
+  if (v <= 0) return 1000;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  return Math.ceil(v / mag) * mag;
+}
+
+function buildHeatScale(maxValue, minValue = 0) {
+  const max = maxValue > 0 ? _ceilNice(maxValue) : 1000;
+  const min = Math.max(0, Math.min(minValue, max));
+  const steps = 10;
+  const step = (max - min) / steps || 1;
+  const breaks = Array.from({ length: steps + 1 }, (_, i) => min + step * i);
+  return { min, max, breaks, pos: breaks.map((_, i) => i / steps) };
+}
+
+function setHeatMax(data, totalByMonth, totalByProject) {
+  let mx = 0;
+  if (data) data.forEach(row => { if (Array.isArray(row)) row.forEach(v => { if (v > mx) mx = v; }); });
+  const monthMax = Array.isArray(totalByMonth) && totalByMonth.length
+    ? Math.max(...totalByMonth) : mx;
+  const monthPositive = Array.isArray(totalByMonth)
+    ? totalByMonth.filter(v => v > 0) : [];
+  const monthMin = monthPositive.length ? Math.min(...monthPositive) : 0;
+  const yearValues = Array.isArray(totalByProject) ? totalByProject.slice() : [];
+  const yearPositive = yearValues.filter(v => v > 0);
+  const yearMax = yearValues.length ? Math.max(...yearValues) : mx;
+  const yearMin = yearPositive.length ? Math.min(...yearPositive) : 0;
+
+  _heatScales = {
+    detail: buildHeatScale(mx),
+    month: buildHeatScale(monthMax, monthMin),
+    year: buildHeatScale(yearMax, yearMin)
+  };
+}
+
+// 值 → 当前区域色阶的归一化位置
+function valToPos(v, scaleName = 'detail') {
+  const scale = _heatScales[scaleName] || _heatScales.detail;
+  const scaleBreaks = scale.breaks;
+  const scalePos = scale.pos;
+  if (v <= 0) return 0;
+  if (v <= scale.min) return 0;
+  if (v >= scaleBreaks[scaleBreaks.length - 1]) return 1;
+  for (let i = 1; i < scaleBreaks.length; i++) {
+    if (v <= scaleBreaks[i]) {
+      const frac = (v - scaleBreaks[i - 1]) / (scaleBreaks[i] - scaleBreaks[i - 1]);
+      return scalePos[i - 1] + frac * (scalePos[i] - scalePos[i - 1]);
+    }
+  }
+  return 1;
+}
+
+// 归一化位置 → RGB
+function posToRgb(pos) {
+  let i = 0;
+  for (let k = 1; k < _colorAnchors.length; k++) { if (_colorAnchors[k][0] <= pos) i = k; else break; }
+  const [p0, c0] = _colorAnchors[i];
+  const [p1, c1] = i < _colorAnchors.length - 1 ? _colorAnchors[i+1] : _colorAnchors[i];
+  const f = p1 > p0 ? (pos - p0) / (p1 - p0) : 0;
+  return [
+    Math.round(c0[0] + (c1[0]-c0[0])*f),
+    Math.round(c0[1] + (c1[1]-c0[1])*f),
+    Math.round(c0[2] + (c1[2]-c0[2])*f)
+  ];
+}
+
+function heatStyle(v, scaleName = 'detail') {
+  if (v <= 0) return 'background:#f8fafc;color:#a0aec0';
+  const pos = Math.min(valToPos(v, scaleName), 1);
+  const [r,g,b] = posToRgb(pos);
+  const lum = 0.299*r + 0.587*g + 0.114*b;
+  return `background:rgb(${r},${g},${b});color:${lum > 160 ? '#1a2332' : '#fff'}`;
+}
+
+function heatClass(v) {
+  if (v <= 0) return 'heat-0';
+  const pos = valToPos(v);
+  if (pos < 0.05) return 'heat-1';
+  if (pos < 0.15) return 'heat-2';
+  if (pos < 0.3) return 'heat-3';
+  if (pos < 0.5) return 'heat-4';
+  if (pos < 0.7) return 'heat-5';
+  if (pos < 0.9) return 'heat-6';
+  return 'heat-7';
+}
+
+function heatClassTotal(v, max) {
+  const ratio = v / max;
+  if (ratio < 0.25) return 'heat-1';
+  if (ratio < 0.4) return 'heat-2';
+  if (ratio < 0.5) return 'heat-3';
+  if (ratio < 0.6) return 'heat-4';
+  if (ratio < 0.75) return 'heat-5';
+  if (ratio < 0.9) return 'heat-6';
+  return 'heat-7';
+}
+
+function renderForecastSections(sections) {
+  const el = document.getElementById('forecastSections');
+  sections = sections
+    .filter(s => !/地域投入特征/.test(s.title || ''))
+    .map(s => ({
+      ...s,
+      title: (s.title || '')
+        .replace(/^四、项目生命周期$/, '三、项目生命周期')
+        .replace(/^五、核心建议$/, '四、核心建议')
+    }));
+  el.innerHTML = sections.map((s, i) => `
+    <div class="forecast-section" data-idx="${i}">
+      <div class="section-header">
+        <h3 class="section-title">${s.title}</h3>
+        <div class="section-actions" style="display:none;">
+          <button class="btn-sec btn-sec-up" onclick="moveForecastSection(${i},-1)" title="上移">↑</button>
+          <button class="btn-sec btn-sec-down" onclick="moveForecastSection(${i},1)" title="下移">↓</button>
+          <button class="btn-sec btn-sec-del" onclick="deleteForecastSection(${i})" title="删除章节">✕</button>
+        </div>
+      </div>
+      <div class="content">${markdownToHtml(s.content)}</div>
+    </div>
+  `).join('') + '<div id="forecastAddSection" style="display:none;text-align:center;margin:12px 0;"><button class="btn btn-primary" onclick="addForecastSection()" style="background:#1abc9c;">+ 添加章节</button></div>';
+}
+
+function getSubIds(type) {
+  if (type === 'os') return { type: 'os', suffix: 'Os', title: 'forecastOsTitle', sections: 'forecastOsSections', summary: 'forecastOsSummary', editBtn: 'forecastOsEditBtn', saveBtn: 'forecastOsSaveBtn', cancelBtn: 'forecastOsCancelBtn', api: '/api/forecast/os/save', historyApi: '/api/forecast/os/history' };
+  if (type === 'platform') return { type: 'platform', suffix: 'Platform', title: 'forecastPlatformTitle', sections: 'forecastPlatformSections', summary: 'forecastPlatformSummary', editBtn: 'forecastPlatformEditBtn', saveBtn: 'forecastPlatformSaveBtn', cancelBtn: 'forecastPlatformCancelBtn', api: '/api/forecast/platform/save', historyApi: '/api/forecast/platform/history' };
+  return { type: '', suffix: '', title: 'forecastTitle', sections: 'forecastSections', summary: 'forecastSummary', editBtn: 'forecastEditBtn', saveBtn: 'forecastSaveBtn', cancelBtn: 'forecastCancelBtn', api: '/api/forecast/save', historyApi: '/api/forecast/history' };
+}
+
+function toggleForecastEdit(type) {
+  const ids = getSubIds(type);
+  FORECAST_EDITING = true;
+  document.getElementById(ids.editBtn).style.display = 'none';
+  document.getElementById(ids.saveBtn).style.display = 'inline-block';
+  document.getElementById(ids.cancelBtn).style.display = 'inline-block';
+  const titleEl = document.getElementById(ids.title);
+  titleEl.contentEditable = 'true';
+  titleEl.style.border = '2px dashed #e67e22';
+  titleEl.style.borderRadius = '4px';
+  titleEl.style.padding = '2px 8px';
+  document.getElementById(ids.summary).contentEditable = 'true';
+  document.getElementById(ids.summary).style.border = '2px dashed #f39c12';
+  document.querySelectorAll(`#${ids.sections} .section-title`).forEach(el => {
+    el.contentEditable = 'true';
+    el.style.border = '1px dashed #f39c12';
+    el.style.borderRadius = '4px';
+    el.style.padding = '2px 6px';
+  });
+  document.querySelectorAll(`#${ids.sections} .content`).forEach(el => {
+    el.contentEditable = 'true';
+    el.style.border = '1px dashed #3498db';
+  });
+  document.querySelectorAll(`#${ids.sections} .section-actions`).forEach(el => {
+    el.style.display = 'flex';
+  });
+  if (!type) {
+    const ab = document.getElementById('forecastAddSection');
+    if (ab) ab.style.display = 'block';
+  }
+}
+
+function cancelForecastEdit(type) {
+  const ids = getSubIds(type);
+  FORECAST_EDITING = false;
+  document.getElementById(ids.editBtn).style.display = 'inline-block';
+  document.getElementById(ids.saveBtn).style.display = 'none';
+  document.getElementById(ids.cancelBtn).style.display = 'none';
+  const titleEl = document.getElementById(ids.title);
+  titleEl.contentEditable = 'false';
+  titleEl.style.border = '';
+  titleEl.style.padding = '';
+  document.getElementById(ids.summary).contentEditable = 'false';
+  document.getElementById(ids.summary).style.border = '';
+  if (!type) { renderForecast(FORECAST_DATA); }
+  else if (type === 'os') { renderForecastSub(FORECAST_OS_DATA, 'Os'); }
+  else if (type === 'platform') { renderForecastSub(FORECAST_PLATFORM_DATA, 'Platform'); }
+}
+
+function addForecastSection(idx) {
+  const title = prompt('请输入新章节标题：', '新章节');
+  if (!title) return;
+  const sections = collectSections();
+  sections.push({ title: title, content: '请在此输入内容...' });
+  FORECAST_DATA.sections = sections;
+  renderForecastSections(sections);
+  toggleForecastEdit();
+}
+
+function deleteForecastSection(idx) {
+  const sections = collectSections();
+  const name = sections[idx] ? sections[idx].title : '';
+  if (!confirm(`确定删除章节「${name}」？`)) return;
+  sections.splice(idx, 1);
+  FORECAST_DATA.sections = sections;
+  renderForecastSections(sections);
+  toggleForecastEdit();
+}
+
+function moveForecastSection(idx, dir) {
+  const sections = collectSections();
+  const target = idx + dir;
+  if (target < 0 || target >= sections.length) return;
+  [sections[idx], sections[target]] = [sections[target], sections[idx]];
+  FORECAST_DATA.sections = sections;
+  renderForecastSections(sections);
+  toggleForecastEdit();
+}
+
+function collectSections(containerId) {
+  const cid = containerId || 'forecastSections';
+  const sectionEls = document.querySelectorAll(`#${cid} .forecast-section`);
+  const sections = [];
+  sectionEls.forEach(el => {
+    const titleEl = el.querySelector('.section-title');
+    const contentEl = el.querySelector('.content');
+    if (titleEl && contentEl) {
+      sections.push({
+        title: titleEl.textContent.trim(),
+        content: htmlToMarkdown(contentEl.innerHTML)
+      });
+    }
+  });
+  return sections;
+}
+
+function saveForecast(type) {
+  const note = prompt('请输入更新备注（描述本次修改内容）:', '');
+  if (note === null) return;
+  if (!note.trim()) { alert('备注不能为空'); return; }
+  const ids = getSubIds(type);
+  const titleEl = document.getElementById(ids.title);
+  const summaryEl = document.getElementById(ids.summary);
+  let dataRef = !type ? FORECAST_DATA : (type === 'os' ? FORECAST_OS_DATA : FORECAST_PLATFORM_DATA);
+  const updatedData = JSON.parse(JSON.stringify(dataRef));
+  updatedData.title = titleEl.textContent.trim();
+  updatedData.summary = htmlToMarkdown(summaryEl.innerHTML);
+  updatedData.sections = collectSections(ids.sections);
+  updatedData._save_note = note.trim();
+  fetch(ids.api, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updatedData)
+  }).then(r => r.json()).then(res => {
+    if (res.ok) {
+      if (!type) { FORECAST_DATA = updatedData; FORECAST_LOADED = false; }
+      else if (type === 'os') { FORECAST_OS_DATA = updatedData; FORECAST_OS_LOADED = false; }
+      else { FORECAST_PLATFORM_DATA = updatedData; FORECAST_PLATFORM_LOADED = false; }
+      cancelForecastEdit(type);
+      if (!type) loadForecast(); else if (type === 'os') loadForecastOs(); else loadForecastPlatform();
+      alert('保存成功');
+    } else {
+      alert('保存失败: ' + (res.error || '未知错误'));
+    }
+  }).catch(e => alert('保存失败: ' + e));
+}
+
+let _historyType = '';
+let _historyVersions = [];
+function showVersionHistory(type) {
+  _historyType = type || '';
+  const ids = getSubIds(type);
+  document.getElementById('versionModal').style.display = 'flex';
+  document.getElementById('versionList').innerHTML = '<div style="text-align:center;color:#999;padding:20px;">加载中...</div>';
+  fetch(ids.historyApi).then(r => r.json()).then(data => {
+    const versions = data.versions || [];
+    _historyVersions = versions;
+    if (versions.length === 0) {
+      document.getElementById('versionList').innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无历史版本</div>';
+      return;
+    }
+    const sourceLabel = s => ({auto:'自动',manual:'手动',rollback:'回滚'}[s]||s||'');
+    const sourceColor = s => ({auto:'#2ecc71',manual:'#3498db',rollback:'#e67e22'}[s]||'#999');
+    document.getElementById('versionList').innerHTML = versions.map((v, i) => `
+      <div class="version-item" data-vid="${v.version_id||''}">
+        <div class="version-item-header">
+          <span class="version-item-time">v${versions.length - i} · ${v.time}</span>
+          <span style="background:${sourceColor(v.source)};color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;margin:0 6px;">${sourceLabel(v.source)}</span>
+          <span class="version-item-user">${v.user || ''}</span>
+        </div>
+        ${v.note ? `<div style="color:#555;font-size:12px;margin:4px 0;"><b>备注:</b> ${v.note}</div>` : ''}
+        <div class="version-item-changes">
+          ${(v.changes || []).map(c => `<span class="change-field">${c.field}</span>${c.desc}`).join('<br>')}
+          ${!v.changes || v.changes.length === 0 ? '保存更新' : ''}
+        </div>
+        <div style="margin-top:6px;">
+          ${v.has_full_snapshot && v.version_id ? `<button class="version-item-expand" onclick="rollbackVersion('${v.version_id}','${type||''}')">回滚到此版本</button>` : ''}
+          ${i < versions.length - 1 && v.has_full_snapshot && versions[i+1].has_full_snapshot ? `<button class="version-item-expand" onclick="showDiff('${versions[i+1].version_id}','${v.version_id}','${type||''}')">与上一版本对比</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }).catch(e => {
+    document.getElementById('versionList').innerHTML = `<div style="color:#e74c3c;padding:20px;">加载失败: ${e}</div>`;
+  });
+}
+function rollbackVersion(versionId, type) {
+  if (!confirm(`确认回滚到版本 ${versionId}？当前数据将被覆盖。`)) return;
+  const dim = !type ? 'vehicle' : type;
+  fetch('/api/forecast/rollback', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({version_id: versionId, dimension: dim})
+  }).then(r=>r.json()).then(res => {
+    if (res.ok) {
+      alert('回滚成功');
+      closeVersionModal();
+      if (!type) { FORECAST_LOADED = false; loadForecast(); }
+      else if (type === 'os') { FORECAST_OS_LOADED = false; loadForecastOs(); }
+      else { FORECAST_PLATFORM_LOADED = false; loadForecastPlatform(); }
+    } else {
+      alert('回滚失败: ' + (res.error||''));
+    }
+  }).catch(e => alert('回滚失败: ' + e));
+}
+function showDiff(fromId, toId, type) {
+  const dim = !type ? 'vehicle' : type;
+  const diffEl = document.getElementById('versionList');
+  diffEl.innerHTML = '<div style="text-align:center;padding:20px;">加载Diff...</div>';
+  fetch(`/api/forecast/diff?from=${fromId}&to=${toId}&dimension=${dim}`)
+    .then(r=>r.json()).then(diff => {
+      let html = `<div style="padding:12px;"><h4 style="margin:0 0 8px;">版本对比: ${fromId.slice(0,6)} → ${toId.slice(0,6)}</h4>`;
+      html += `<p>数据变化: <b>${diff.total_cells_changed}</b> 个单元格, 文字变化: <b>${diff.text_changes.length}</b> 处</p>`;
+      if (diff.heatmap_changes.length > 0) {
+        html += '<table style="width:100%;border-collapse:collapse;font-size:12px;margin:8px 0;"><tr><th style="border:1px solid #ddd;padding:4px;">项目</th><th style="border:1px solid #ddd;padding:4px;">类型</th><th style="border:1px solid #ddd;padding:4px;">变化详情</th></tr>';
+        diff.heatmap_changes.slice(0,20).forEach(c => {
+          const details = c.cells ? c.cells.map(cl => `${cl.month}: ${cl.from}→${cl.to}`).join(', ') : '';
+          html += `<tr><td style="border:1px solid #ddd;padding:4px;">${c.project}</td><td style="border:1px solid #ddd;padding:4px;">${c.type}</td><td style="border:1px solid #ddd;padding:4px;">${details}</td></tr>`;
+        });
+        html += '</table>';
+      }
+      if (diff.text_changes.length > 0) {
+        html += '<div style="margin-top:8px;"><b>文字变化:</b><ul>';
+        diff.text_changes.forEach(t => { html += `<li>${t.field} (${t.type||'changed'})</li>`; });
+        html += '</ul></div>';
+      }
+      html += `<button class="btn" onclick="showVersionHistory('${type}')" style="margin-top:10px;">返回版本列表</button></div>`;
+      diffEl.innerHTML = html;
+    }).catch(e => { diffEl.innerHTML = `<div style="color:#e74c3c;">Diff加载失败: ${e}</div>`; });
+}
+
+function closeVersionModal() {
+  document.getElementById('versionModal').style.display = 'none';
+}
+
+function toggleVersionDetail(btn) {
+  const detail = btn.nextElementSibling;
+  if (detail.style.display === 'block') {
+    detail.style.display = 'none';
+    btn.textContent = '查看详情 ▼';
+  } else {
+    detail.style.display = 'block';
+    btn.textContent = '收起 ▲';
+  }
+}
+
+function htmlToMarkdown(html) {
+  return html.replace(/<strong>(.*?)<\/strong>/g, '**$1**')
+    .replace(/<br\s*\/?>\s*•\s*/g, '\n- ')
+    .replace(/<br\s*\/?><br\s*\/?>/g, '\n\n')
+    .replace(/<br\s*\/?>/g, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim();
+}
+
+// ── 资源预测自动刷新 ──
+
+function triggerAutoRefresh(dimension) {
+  if (!confirm(`确认刷新${dimension === 'vehicle' ? '车型' : dimension.toUpperCase()}演示数据？\n\n公开演示只使用固定快照。`)) return;
+  const statusEl = document.getElementById('forecastRefreshStatus');
+  const btn = document.getElementById('forecastRefreshBtn');
+  btn.disabled = true;
+  btn.textContent = '刷新中...';
+  statusEl.textContent = '正在读取演示数据...';
+  statusEl.style.color = '#f39c12';
+
+  fetch('/api/forecast/auto-refresh', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({dimension: dimension, note: '手动触发自动刷新'})
+  }).then(r => r.json()).then(res => {
+    btn.disabled = false;
+    btn.textContent = '刷新数据';
+    if (res.ok) {
+      statusEl.textContent = `刷新成功 (${res.projects_count}个项目, ${res.duration_sec}s)`;
+      statusEl.style.color = '#27ae60';
+      // 刷新页面展示
+      FORECAST_LOADED = false;
+      loadForecast();
+      // 刷新热力图PNG（加时间戳防缓存）
+      const img = document.getElementById('forecastHeatmapPng');
+      if (img && res.heatmap_file) {
+        img.src = '/static/forecast_heatmap_' + dimension + '.png?t=' + Date.now();
+        img.parentElement.style.display = '';
+      }
+      setTimeout(() => { statusEl.textContent = ''; }, 5000);
+    } else {
+      statusEl.textContent = '刷新失败: ' + (res.error || '未知错误');
+      statusEl.style.color = '#e74c3c';
+    }
+  }).catch(e => {
+    btn.disabled = false;
+    btn.textContent = '刷新数据';
+    statusEl.textContent = '刷新失败: ' + e;
+    statusEl.style.color = '#e74c3c';
+  });
+}
+
+function loadAutoStatus() {
+  fetch('/api/forecast/auto-status').then(r => r.json()).then(data => {
+    if (data.vehicle && data.vehicle.last_fetch) {
+      const el = document.getElementById('forecastRefreshStatus');
+      if (el) el.textContent = '上次刷新: ' + data.vehicle.last_fetch;
+    }
+  }).catch(() => {});
+  // 加载窗口期状态
+  fetch('/api/forecast/window/status?dimension=vehicle').then(r => r.json()).then(ws => {
+    const bar = document.getElementById('windowStatusBar');
+    if (!bar) return;
+    bar.style.display = 'flex';
+    const statusEl = document.getElementById('wsStatus');
+    const nextEl = document.getElementById('wsNextAdvance');
+    if (ws.window_open) {
+      statusEl.innerHTML = `<span class="ws-open">窗口开启中（${ws.window_period}）</span> 实际数据至${ws.actual_months}月`;
+    } else {
+      statusEl.innerHTML = `<span class="ws-closed">窗口已关闭</span> 实际数据至${ws.actual_months}月 | 锁定：1-${ws.actual_months}月`;
+    }
+    nextEl.textContent = `下次推进: ${ws.next_advance}`;
+  }).catch(() => {});
+  // 加载峰值预警
+  fetch('/api/forecast/alerts?dimension=vehicle').then(r => r.json()).then(data => {
+    const banner = document.getElementById('forecastAlertsBanner');
+    const content = document.getElementById('forecastAlertsContent');
+    if (!banner) return;
+    const alerts = data.alerts || [];
+    if (alerts.length === 0) { banner.style.display = 'none'; return; }
+    banner.style.display = 'block';
+    content.innerHTML = alerts.map(a => `<div style="margin:2px 0;">${a.message}</div>`).join('');
+  }).catch(() => {});
+}
+
+// ── 管理后台功能 ──
+
+function switchAdminSub(panel) {
+  ['config','ops','log','source','login'].forEach(p => {
+    const el = document.getElementById('adminPanel' + p.charAt(0).toUpperCase() + p.slice(1));
+    const btn = document.getElementById('adminSub' + p.charAt(0).toUpperCase() + p.slice(1));
+    if (el) el.style.display = (p === panel) ? 'block' : 'none';
+    if (btn) btn.style.fontWeight = (p === panel) ? 'bold' : 'normal';
+  });
+  if (panel === 'config') loadAdminConfig();
+  else if (panel === 'ops') loadAdminOps();
+  else if (panel === 'log') loadAdminRunLog();
+  else if (panel === 'source') loadAdminSource();
+  else if (panel === 'login') loadLoginLog();
+}
+
+function loadAdminConfig() {
+  fetch('/api/forecast/config').then(r=>r.json()).then(config => {
+    const el = document.getElementById('adminConfigContent');
+    const vc = config.vehicle || {};
+    const wc = config.window || {};
+    const ac = config.alerts || {};
+    const ar = config.auto_refresh || {};
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <fieldset style="border:1px solid #ddd;border-radius:6px;padding:12px;">
+          <legend style="font-weight:600;">窗口期配置</legend>
+          <label>自动推进: <input type="checkbox" id="cfgAutoAdvance" ${wc.auto_advance?'checked':''}></label><br>
+          <label>推进日(每月): <input type="number" id="cfgAdvanceDay" value="${wc.advance_day||1}" min="1" max="28" style="width:60px;"></label><br>
+          <label>窗口开启日: <input type="number" id="cfgWinStart" value="${wc.update_window_start||15}" min="1" max="28" style="width:60px;"></label><br>
+          <label>窗口关闭日: <input type="number" id="cfgWinEnd" value="${wc.update_window_end||25}" min="1" max="31" style="width:60px;"></label>
+        </fieldset>
+        <fieldset style="border:1px solid #ddd;border-radius:6px;padding:12px;">
+          <legend style="font-weight:600;">预警配置</legend>
+          <label>启用预警: <input type="checkbox" id="cfgAlertsEnabled" ${ac.enabled?'checked':''}></label><br>
+          <label>峰值阈值倍数: <input type="number" id="cfgAlertMulti" value="${ac.peak_threshold_multiplier||1.5}" step="0.1" min="1" style="width:80px;"></label>
+        </fieldset>
+        <fieldset style="border:1px solid #ddd;border-radius:6px;padding:12px;">
+          <legend style="font-weight:600;">自动刷新</legend>
+          <label>启用: <input type="checkbox" id="cfgAutoEnabled" ${ar.enabled?'checked':''}></label><br>
+          <label>触发日(每月): <input type="number" id="cfgCronDay" value="${ar.cron_day||16}" min="1" max="28" style="width:60px;"></label><br>
+          <label>触发时间: <input type="number" id="cfgCronHour" value="${ar.cron_hour||9}" min="0" max="23" style="width:50px;">时
+            <input type="number" id="cfgCronMin" value="${ar.cron_minute||0}" min="0" max="59" style="width:50px;">分</label>
+        </fieldset>
+        <fieldset style="border:1px solid #ddd;border-radius:6px;padding:12px;">
+          <legend style="font-weight:600;">数据源(车型)</legend>
+          <label>实际数据月数: <input type="number" id="cfgActualMonths" value="${vc.actual_months||7}" min="0" max="12" style="width:60px;"></label><br>
+          <label>数据源标识: <input type="text" id="cfgSourceId" value="${vc.source_id||''}" style="width:180px;font-size:11px;"></label><br>
+          <label>Sheet ID: <input type="text" id="cfgSheetId" value="${vc.sheet_id||''}" style="width:120px;font-size:11px;"></label><br>
+          <label>数据行范围: 第<input type="number" id="cfgDataStartRow" value="${vc.data_start_row||3}" min="1" max="100" style="width:50px;">行 ~ 第<input type="number" id="cfgDataEndRow" value="${vc.data_end_row||14}" min="1" max="200" style="width:50px;">行</label>
+        </fieldset>
+      </div>
+      <div style="margin-top:14px;text-align:right;">
+        <button class="btn btn-save" onclick="saveAdminConfig()">保存配置</button>
+      </div>
+    `;
+  }).catch(e => {
+    document.getElementById('adminConfigContent').innerHTML = `<div style="color:red;">加载失败: ${e}</div>`;
+  });
+}
+
+function saveAdminConfig() {
+  fetch('/api/forecast/config').then(r=>r.json()).then(config => {
+    config.window.auto_advance = document.getElementById('cfgAutoAdvance').checked;
+    config.window.advance_day = parseInt(document.getElementById('cfgAdvanceDay').value);
+    config.window.update_window_start = parseInt(document.getElementById('cfgWinStart').value);
+    config.window.update_window_end = parseInt(document.getElementById('cfgWinEnd').value);
+    config.alerts.enabled = document.getElementById('cfgAlertsEnabled').checked;
+    config.alerts.peak_threshold_multiplier = parseFloat(document.getElementById('cfgAlertMulti').value);
+    config.auto_refresh.enabled = document.getElementById('cfgAutoEnabled').checked;
+    config.auto_refresh.cron_day = parseInt(document.getElementById('cfgCronDay').value);
+    config.auto_refresh.cron_hour = parseInt(document.getElementById('cfgCronHour').value);
+    config.auto_refresh.cron_minute = parseInt(document.getElementById('cfgCronMin').value);
+    config.vehicle.actual_months = parseInt(document.getElementById('cfgActualMonths').value);
+    config.vehicle.source_id = document.getElementById('cfgSourceId').value;
+    config.vehicle.sheet_id = document.getElementById('cfgSheetId').value;
+    config.vehicle.data_start_row = parseInt(document.getElementById('cfgDataStartRow').value);
+    config.vehicle.data_end_row = parseInt(document.getElementById('cfgDataEndRow').value);
+    return fetch('/api/forecast/config/save', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(config)
+    });
+  }).then(r=>r.json()).then(res => {
+    if (res.ok) alert('配置保存成功');
+    else alert('保存失败: ' + (res.error||''));
+  }).catch(e => alert('保存失败: ' + e));
+}
+
+function loadAdminOps() {
+  const el = document.getElementById('adminOpsContent');
+  el.innerHTML = `
+    <div style="border:1px solid #ddd;border-radius:6px;padding:12px;">
+      <b>数据刷新</b>
+      <p style="font-size:12px;color:#666;">从演示数据源读取快照，重新生成热力图和文字分析</p>
+      <button class="btn" style="background:#2ecc71;color:#fff;" onclick="adminOp('refresh','vehicle')">刷新车型</button>
+    </div>
+    <div style="border:1px solid #ddd;border-radius:6px;padding:12px;">
+      <b>窗口推进</b>
+      <p style="font-size:12px;color:#666;">手动推进actual_months（锁定上月数据）</p>
+      <button class="btn" style="background:#3498db;color:#fff;" onclick="adminOp('advance','vehicle')">推进车型</button>
+    </div>
+    <div style="border:1px solid #ddd;border-radius:6px;padding:12px;">
+      <b>解锁月份</b>
+      <p style="font-size:12px;color:#666;">临时解锁指定锁定月份以允许编辑</p>
+      <input type="number" id="opsUnlockMonth" min="1" max="12" value="7" style="width:50px;"> 月
+      <button class="btn" style="background:#e67e22;color:#fff;" onclick="adminOp('unlock','vehicle')">解锁</button>
+    </div>
+    <div style="border:1px solid #ddd;border-radius:6px;padding:12px;">
+      <b>重新锁定</b>
+      <p style="font-size:12px;color:#666;">将已解锁的月份重新锁定</p>
+      <input type="number" id="opsLockMonth" min="1" max="12" value="7" style="width:50px;"> 月
+      <button class="btn" style="background:#e74c3c;color:#fff;" onclick="adminOp('lock','vehicle')">锁定</button>
+    </div>
+  `;
+}
+
+function adminOp(action, dimension) {
+  const resultEl = document.getElementById('adminOpsResult');
+  resultEl.style.display = 'block';
+  resultEl.style.background = '#f0f0f0';
+  resultEl.textContent = '执行中...';
+  let url, body;
+  if (action === 'refresh') {
+    url = '/api/forecast/auto-refresh';
+    body = {dimension, note: '管理后台手动刷新'};
+  } else if (action === 'advance') {
+    url = '/api/forecast/window/advance';
+    body = {dimension};
+  } else if (action === 'unlock') {
+    url = '/api/forecast/window/unlock';
+    body = {dimension, month: parseInt(document.getElementById('opsUnlockMonth').value)};
+  } else if (action === 'lock') {
+    url = '/api/forecast/window/lock';
+    body = {dimension, month: parseInt(document.getElementById('opsLockMonth').value)};
+  }
+  fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+    .then(r=>r.json()).then(res => {
+      if (res.ok || res.actual_months !== undefined) {
+        resultEl.style.background = '#d4edda';
+        resultEl.textContent = '操作成功: ' + JSON.stringify(res).slice(0,200);
+      } else {
+        resultEl.style.background = '#f8d7da';
+        resultEl.textContent = '操作失败: ' + (res.error || JSON.stringify(res));
+      }
+    }).catch(e => {
+      resultEl.style.background = '#f8d7da';
+      resultEl.textContent = '操作异常: ' + e;
+    });
+}
+
+function loadAdminRunLog() {
+  fetch('/api/forecast/run-log').then(r=>r.json()).then(data => {
+    const logs = data.logs || [];
+    const tbody = document.getElementById('adminRunLogBody');
+    tbody.innerHTML = logs.slice(0, 100).map((log, i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td style="white-space:nowrap;">${log.time||''}</td>
+        <td>${log.action||''}</td>
+        <td>${log.dimension||''}</td>
+        <td style="color:${log.success?'#27ae60':'#e74c3c'}">${log.success?'成功':'失败'}</td>
+        <td style="font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;">${log.message||''}</td>
+        <td>${log.duration_sec ? log.duration_sec.toFixed(1)+'s' : '-'}</td>
+      </tr>
+    `).join('');
+    if (logs.length === 0) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;">暂无日志</td></tr>';
+  }).catch(e => {
+    document.getElementById('adminRunLogBody').innerHTML = `<tr><td colspan="7" style="color:red;">加载失败: ${e}</td></tr>`;
+  });
+}
+
+function loadAdminSource() {
+  const el = document.getElementById('adminSourceContent');
+  el.innerHTML = '<div style="text-align:center;color:#999;">检测中...</div>';
+  fetch('/api/forecast/auto-status').then(r=>r.json()).then(data => {
+    let html = '<table style="width:100%;border-collapse:collapse;">';
+    html += '<tr><th style="border:1px solid #ddd;padding:6px;">维度</th><th style="border:1px solid #ddd;padding:6px;">最后拉取</th><th style="border:1px solid #ddd;padding:6px;">状态</th></tr>';
+    ['vehicle','os','platform'].forEach(dim => {
+      const d = data[dim] || {};
+      const color = d.last_status === 'success' ? '#27ae60' : (d.last_status ? '#e74c3c' : '#999');
+      html += `<tr><td style="border:1px solid #ddd;padding:6px;">${dim}</td><td style="border:1px solid #ddd;padding:6px;">${d.last_fetch||'从未'}</td><td style="border:1px solid #ddd;padding:6px;color:${color};">${d.last_status||'未配置'}</td></tr>`;
+    });
+    html += '</table>';
+    html += `<div style="margin-top:12px;"><b>绘图库:</b> ${data.has_plot_libs?'<span style="color:#27ae60;">可用</span>':'<span style="color:#e74c3c;">不可用</span>'}</div>`;
+    html += `<div style="margin-top:6px;"><b>自动刷新:</b> ${data.auto_refresh?.enabled?'<span style="color:#27ae60;">已启用</span> (每月'+data.auto_refresh.cron_day+'日 '+data.auto_refresh.cron_hour+':'+String(data.auto_refresh.cron_minute).padStart(2,'0')+')':'<span style="color:#999;">未启用</span>'}</div>`;
+    el.innerHTML = html;
+  }).catch(e => { el.innerHTML = `<div style="color:red;">加载失败: ${e}</div>`; });
+}
+
+function loadLoginLog() {
+  fetch('/api/login-log').then(r => r.json()).then(data => {
+    const logs = data.logs || [];
+    const roleMap = {'admin': '管理员', 'operator': '用户', 'unknown': '未知'};
+    const renderRows = (tbody) => {
+      tbody.innerHTML = logs.slice(0, 100).map((log, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${log.time}</td>
+          <td>${log.user}</td>
+          <td>${roleMap[log.role] || log.role}</td>
+          <td>${log.ip}</td>
+          <td style="color:${log.success ? '#27ae60' : '#e74c3c'}">${log.success ? '成功' : '失败'}</td>
+        </tr>
+      `).join('');
+    };
+    renderRows(document.getElementById('loginLogBody2'));
+    const metaText = `共 ${logs.length} 条记录（最近 100 条）`;
+    document.getElementById('loginLogMeta2').textContent = metaText;
+  }).catch(() => {});
+}
+
+function doLogout() {
+  fetch('/api/logout', {method: 'POST'}).then(() => {
+    document.cookie = 'demo_session=; path=/; max-age=0';
+    window.location.href = '/login';
+  }).catch(() => {
+    window.location.href = '/login';
+  });
+}
+
+
+// ── Load data ──
+
+// ── Business Filter (checkbox dropdown) ──
+let BIZ_OPEN = false;
+function toggleBizDropdown() {
+  BIZ_OPEN = !BIZ_OPEN;
+  document.getElementById('bizPanel').style.display = BIZ_OPEN ? 'block' : 'none';
+}
+function closeBizDropdown() {
+  BIZ_OPEN = false;
+  document.getElementById('bizPanel').style.display = 'none';
+}
+document.addEventListener('click', function(e) {
+  if (!document.getElementById('bizDropdown').contains(e.target)) closeBizDropdown();
+});
+function getSelectedBiz() {
+  const cbs = document.querySelectorAll('#bizOptions input[type=checkbox]:checked');
+  return Array.from(cbs).map(cb => cb.value).filter(v => v);
+}
+function updateBizLabel() {
+  const sel = getSelectedBiz();
+  const label = document.getElementById('bizLabel');
+  if (sel.length === 0) { label.textContent = '全部'; label.style.color = '#999'; }
+  else if (sel.length <= 2) { label.textContent = sel.join('、'); label.style.color = '#333'; }
+  else { label.textContent = sel.length + ' 个业务'; label.style.color = '#333'; }
+}
+function bizSelectAll() {
+  document.querySelectorAll('#bizOptions input[type=checkbox]').forEach(cb => cb.checked = true);
+  updateBizLabel(); applyFilters();
+}
+function bizClearAll() {
+  document.querySelectorAll('#bizOptions input[type=checkbox]').forEach(cb => cb.checked = false);
+  updateBizLabel(); applyFilters();
+}
+function toggleBusinessInverse() {
+  BUSINESS_INVERSE = !BUSINESS_INVERSE;
+  const btn = document.getElementById('businessInverseBtn');
+  btn.style.background = BUSINESS_INVERSE ? '#e74c3c' : '';
+  btn.style.color = BUSINESS_INVERSE ? '#fff' : '';
+  applyFilters();
+}
+let BIZ_TREE = {};
+function updateBusinessFilterOptions(businessList) {
+  // 从平铺路径构建树: "平台项目/音频平台" → { 平台项目: { __children: { 音频平台: { __leaf: true } } } }
+  const tree = {};
+  businessList.forEach(path => {
+    const parts = path.split('/');
+    let node = tree;
+    parts.forEach((p, i) => {
+      if (!node[p]) node[p] = { __children: {} };
+      if (i === parts.length - 1) node[p].__leaf = true;
+      node = node[p].__children;
+    });
+  });
+  BIZ_TREE = tree;
+  renderBizTree();
+}
+function renderBizTree(filter) {
+  const el = document.getElementById('bizOptions');
+  const f = (filter || '').toLowerCase();
+  el.innerHTML = buildBizTreeHTML(BIZ_TREE, f, 0, '');
+  updateBizLabel();
+}
+function buildBizTreeHTML(node, filter, depth, prefix) {
+  let html = '';
+  const keys = Object.keys(node).sort();
+  keys.forEach(key => {
+    const n = node[key];
+    const fullPath = prefix + key;
+    const isBranch = Object.keys(n.__children).length > 0;
+    let childrenHTML = '';
+    if (isBranch) childrenHTML = buildBizTreeHTML(n.__children, filter, depth + 1, fullPath + '/');
+    // 搜索过滤: 节点自身或后代有匹配则显示
+    let selfMatch = !filter || key.toLowerCase().includes(filter);
+    let childMatch = filter && childrenHTML.trim().length > 0;
+    if (filter && !selfMatch && !childMatch) return;
+    const expanded = filter && childMatch;
+    html += '<div class="biz-tree-node">';
+    if (isBranch) {
+      html += '<div class="biz-tree-label">';
+      html += '<span class="biz-tree-toggle" onclick="event.stopPropagation();toggleBizTreeNode(this)" data-expanded="' + (expanded ? '1' : '0') + '">' + (expanded ? '▼' : '▶') + '</span>';
+      // 所有分支节点都加 checkbox
+      html += '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin:0;"><input type="checkbox" value="' + fullPath + '" onchange="toggleBizParent(this);updateBizLabel();applyFilters()"><b>' + key + '</b></label>';
+      html += '</div>';
+      html += '<div class="biz-tree-children" style="display:' + (expanded ? 'block' : 'none') + ';">' + childrenHTML + '</div>';
+    } else {
+      // 叶子节点
+      html += '<div class="biz-tree-label" style="padding-left:' + (depth * 16 + 18) + 'px;">';
+      html += '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin:0;"><input type="checkbox" value="' + fullPath + '" onchange="updateBizLabel();applyFilters()">' + key + '</label>';
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  return html;
+}
+function toggleBizTreeNode(el) {
+  const expanded = el.dataset.expanded === '1';
+  el.dataset.expanded = expanded ? '0' : '1';
+  el.textContent = expanded ? '▶' : '▼';
+  const children = el.closest('.biz-tree-node').querySelector('.biz-tree-children');
+  if (children) children.style.display = expanded ? 'none' : 'block';
+}
+function toggleBizParent(checkbox) {
+  const checked = checkbox.checked;
+  const node = checkbox.closest('.biz-tree-node');
+  node.querySelectorAll('.biz-tree-children input[type=checkbox]').forEach(cb => { cb.checked = checked; });
+}
+function filterBizTree() {
+  const v = document.getElementById('bizSearch').value.trim();
+  renderBizTree(v);
+}
+
+// ── Cross-domain toggle ──
+function setCrossDomain(btn) {
+  document.querySelectorAll('#crossDomainToggle .toggle-opt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  CROSS_DOMAIN_FILTER = btn.dataset.value || null;
+  applyFilters();
+}
+
+const EMBEDDED_DATA = [];
+function loadData() {
+  RAW_DATA = [];
+  DAILY_DATA = null;
+  MONTHLY_DATA = null;
+  document.getElementById("dateStart").value = '2026-01-01';
+  document.getElementById("dateEnd").value = '2026-12-31';
+  DATE_START = new Date('2026-01-01');
+  DATE_END = new Date('2026-12-31T23:59:59');
+  FILTERED = [];
+  fetch('/api/model-info').then(r=>r.json()).then(d=>{ document.getElementById('modelName').textContent = d.model || '未知'; }).catch(()=>{});
+
+  // 从服务端加载缓存数据
+  fetch('/api/data').then(r=>r.json()).then(data => {
+    if (data.stories && data.stories.length > 0) {
+      RAW_DATA = data.stories;
+      DAILY_DATA = data.daily_data;
+      MONTHLY_DATA = data.monthly_data;
+      BIZ_DAILY_DATA = data.biz_daily_data || null;
+      BIZ_MONTHLY_DATA = data.biz_monthly_data || null;
+      updateHeaderStatus(data);
+      if (data.business_list) updateBusinessFilterOptions(data.business_list);
+      applyFilters();
+    } else {
+      updateHeaderStatus(null);
+      renderKPI();
+      renderCharts();
+      renderTable();
+    }
+  }).catch(() => {
+    updateHeaderStatus(null);
+    renderKPI();
+    renderCharts();
+    renderTable();
+  });
+}
+function updateHeaderStatus(data) {
+  const el = document.getElementById("updateTime");
+  if (!data || !data.fetch_time) {
+    el.textContent = '暂无演示数据，请刷新页面重试';
+    return;
+  }
+  const src = data.fetch_source === 'auto' ? '自动同步' : '手动同步';
+  const count = data.total_count || (data.stories ? data.stories.length : 0);
+  const dur = data.duration ? (' · 耗时 ' + Number(data.duration).toFixed(1) + 's') : '';
+  el.textContent = data.fetch_time + '（' + src + '）· ' + count + ' 条工作项' + dur;
+}
+
+// ── 错误分类 ──
+function classifyError(errMsg) {
+  const msg = String(errMsg).toLowerCase();
+  if (msg.includes('timeout') || msg.includes('timed out'))
+    return { zh: '请求超时，网络可能不稳定', hint: '请检查网络连接后重试' };
+  if (msg.includes('401') || msg.includes('unauthorized'))
+    return { zh: '演示数据访问失败', hint: '请刷新页面重试' };
+  if (msg.includes('403') || msg.includes('forbidden'))
+    return { zh: '公开演示为只读模式', hint: '数据修改功能未在演示环境启用' };
+  if (msg.includes('500') || msg.includes('502') || msg.includes('503'))
+    return { zh: '演示服务异常', hint: '静态资源暂时不可用，请稍后重试' };
+  if (msg.includes('429'))
+    return { zh: '请求过于频繁，触发限流', hint: '请等待几分钟后重试' };
+  if (msg.includes('connection') || msg.includes('connect') || msg.includes('errno'))
+    return { zh: '网络连接失败', hint: '请检查网络连接后重试' };
+  if (msg.includes('配置') || msg.includes('not found'))
+    return { zh: '演示数据配置异常', hint: '公开演示使用固定数据快照' };
+  if (msg.includes('json') || msg.includes('decode'))
+    return { zh: '演示数据格式异常', hint: '请刷新页面重试' };
+  return { zh: '同步出错', hint: errMsg };
+}
+
+// ── 原应用的数据同步流程；公开演示运行时保持只读 ──
+async function syncFromMeego() {
+  const btn = document.getElementById("syncBtn");
+  const btnText = document.getElementById("syncBtnText");
+
+  btn.disabled = true;
+  btnText.textContent = '同步中...';
+
+  // 显示进度框
+  document.getElementById("syncProgressBox").style.display = '';
+
+  // 初始化进度显示
+  document.getElementById("syncStep").textContent = '正在启动...';
+  document.getElementById("syncStep").style.color = '';
+  document.getElementById("syncElapsed").textContent = '';
+  document.getElementById("syncCountdown").textContent = '';
+  document.getElementById("syncProgressBar").style.width = '0%';
+  document.getElementById("syncProgressBar").style.background = '#e67e22';
+  document.getElementById("syncDetail").textContent = '';
+
+  // 先发起 POST 请求，再连接 SSE（避免竞态）
+  const refreshPromise = fetch('/api/refresh', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({})
+  });
+
+  // 延迟 200ms 连接 SSE，确保 POST 已启动
+  await new Promise(r => setTimeout(r, 200));
+
+  const evtSource = new EventSource('/api/progress');
+  evtSource.onmessage = function(event) {
+    const state = JSON.parse(event.data);
+    const phaseMap = {
+      'work_items': 'Step 1/3: 拉取工作项列表...',
+      'workflow': 'Step 2/3: 拉取工作流 (' + (state.fetched || 0) + '/' + (state.total || '?') + ')...',
+      'incremental': '增量同步 (' + (state.fetched || 0) + '/' + (state.total || '?') + ' 条变化)...',
+      'calc': 'Step 3/3: 计算估分插值...',
+      'done': '同步完成！',
+      'error': classifyError(state.message || '').zh || '同步失败',
+      'retry': state.message || '重试中...'
+    };
+    document.getElementById("syncStep").textContent = phaseMap[state.phase] || state.message || '';
+    document.getElementById("syncElapsed").textContent = '已耗时 ' + (state.elapsed_sec || 0).toFixed(0) + 's';
+    document.getElementById("syncCountdown").textContent = state.eta_sec > 0 ? '剩余预估 ' + state.eta_sec + 's' : '';
+    const pct = state.total > 0 ? Math.round(state.fetched / state.total * 100) : 0;
+    document.getElementById("syncProgressBar").style.width = pct + '%';
+    document.getElementById("syncDetail").textContent = (state.fetched || 0) + '/' + (state.total || '?') + ' · QPS ' + (state.qps || '?');
+
+    if (state.phase === 'done' || state.phase === 'error') {
+      evtSource.close();
+    }
+  };
+
+  try {
+    const resp = await refreshPromise;
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    RAW_DATA = data.stories;
+    DAILY_DATA = data.daily_data;
+    MONTHLY_DATA = data.monthly_data;
+    BIZ_DAILY_DATA = data.biz_daily_data || null;
+    BIZ_MONTHLY_DATA = data.biz_monthly_data || null;
+
+    const now = new Date();
+    const fmt = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0') + ':' + String(now.getSeconds()).padStart(2,'0');
+    updateHeaderStatus({ fetch_time: fmt, fetch_source: 'manual', total_count: data.total_count, duration: data.duration });
+    document.getElementById("lastSyncInfo").textContent = '上次同步 ' + now.toLocaleTimeString("zh-CN") + ' · 耗时 ' + (data.duration || 0).toFixed(1) + 's';
+
+    if (data.business_list) updateBusinessFilterOptions(data.business_list);
+
+    btn.disabled = false;
+    btnText.textContent = '演示数据（固定快照）';
+    refreshDashboard();
+
+    setTimeout(() => {
+      document.getElementById("syncProgressBox").style.display = 'none';
+    }, 3000);
+  } catch (e) {
+    evtSource.close();
+    // 会话过期（服务端返回401）→ 跳转登录页
+    if (e.message && e.message.includes('401')) {
+      try {
+        const check = await fetch('/api/auth/check');
+        const cj = await check.json();
+        if (!cj.ok) { window.location.href = '/login'; return; }
+      } catch (_) { window.location.href = '/login'; return; }
+    }
+    const err = classifyError(e.message);
+    document.getElementById("syncStep").textContent = err.zh;
+    document.getElementById("syncStep").style.color = '#e74c3c';
+    document.getElementById("syncProgressBar").style.background = '#e74c3c';
+    document.getElementById("syncDetail").innerHTML =
+      '<div style="color:#888;font-size:12px;margin-bottom:6px;">' + err.hint + '</div>' +
+      '<div style="color:#aaa;font-size:11px;margin-bottom:8px;word-break:break-all;">' + e.message + '</div>' +
+      '<button onclick="syncFromMeego()" style="padding:6px 16px;border:none;border-radius:4px;background:#3498db;color:#fff;cursor:pointer;font-size:13px;">重试</button>';
+    btn.disabled = false;
+    btnText.textContent = '演示数据（固定快照）';
+  }
+}
+
+function refreshDashboard() {
+  if (!RAW_DATA.length) {
+    alert('请先点击「从 Meego 同步数据」加载数据');
+    return;
+  }
+  // 显示刷新遮罩
+  showRefreshOverlay(true);
+  // 短延迟让 UI 更新，然后执行筛选渲染
+  setTimeout(() => {
+    try { applyFilters(); } finally { showRefreshOverlay(false); }
+  }, 100);
+}
+
+function showRefreshOverlay(show) {
+  let overlay = document.getElementById('refreshOverlay');
+  if (show) {
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'refreshOverlay';
+      overlay.className = 'refresh-overlay';
+      overlay.innerHTML = '<div style="background:#fff;padding:12px 24px;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.1);">数据刷新中...</div>';
+      document.body.appendChild(overlay);
+    }
+    overlay.style.display = 'flex';
+  } else if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
+// ── Date presets ──
+function setRange(preset) {
+  const now = new Date();
+  let start, end;
+  if (preset === '2025') {
+    start = new Date(2025, 0, 1); end = new Date(2025, 11, 31);
+  } else if (preset === '2026') {
+    start = new Date(2026, 0, 1); end = new Date(2026, 11, 31);
+  } else if (preset === '2027') {
+    start = new Date(2027, 0, 1); end = new Date(2027, 11, 31);
+  } else {
+    start = new Date('2024-01-01'); end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  }
+  document.getElementById("dateStart").value = (start.getFullYear() + "-" + String(start.getMonth()+1).padStart(2,"0") + "-" + String(start.getDate()).padStart(2,"0"));
+  document.getElementById("dateEnd").value = (end.getFullYear() + "-" + String(end.getMonth()+1).padStart(2,"0") + "-" + String(end.getDate()).padStart(2,"0"));
+  document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  applyFilters();
+}
+
+// ── Apply filters ──
+function applyFilters() {
+  const ds = document.getElementById("dateStart").value;
+  const de = document.getElementById("dateEnd").value;
+  const startDate = ds ? new Date(ds) : new Date('2020-01-01');
+  const endDate = de ? new Date(de + 'T23:59:59') : new Date('2030-12-31');
+
+  DATE_START = startDate;
+  DATE_END = endDate;
+
+  // Business filter
+  const selectedBiz = getSelectedBiz();
+
+  FILTERED = RAW_DATA.filter(d => {
+    // Date filter: use schedule dates (when work happens), fallback to created_at
+    const ss = d.schedule_start ? new Date(d.schedule_start) : (d.created_at ? new Date(d.created_at) : null);
+    const se = d.schedule_end ? new Date(d.schedule_end) : (d.created_at ? new Date(d.created_at) : null);
+    if (!ss || !se) return false;
+    if (se < startDate || ss > endDate) return false;
+    // Business filter
+    if (selectedBiz.length > 0) {
+      const match = selectedBiz.includes(d.business);
+      if (BUSINESS_INVERSE ? match : !match) return false;
+    }
+    // Cross-domain filter
+    if (CROSS_DOMAIN_FILTER !== null && d.cross_domain !== CROSS_DOMAIN_FILTER) return false;
+    return true;
+  });
+
+  renderKPI();
+  renderCharts();
+  renderTable();
+}
+function fmtDate(d) {
+  if (!d) return '-';
+  const dt = new Date(d);
+  return dt.getFullYear() + '/' + String(dt.getMonth()+1).padStart(2,'0') + '/' + String(dt.getDate()).padStart(2,'0');
+}
+function renderKPI() {
+  const PM_DAYS = 21.75;
+  const toPM = v => (v / PM_DAYS).toFixed(1);
+
+  // Filter stories by business
+  const selectedBiz = getSelectedBiz();
+  const bizActive = selectedBiz.length > 0;
+
+  let filtered = FILTERED;
+  if (bizActive) {
+    filtered = FILTERED.filter(d => {
+      const match = selectedBiz.includes(d.business);
+      return BUSINESS_INVERSE ? !match : match;
+    });
+  }
+
+  // 计算总估分：优先使用快照中的月度聚合数据
+  const rangeStart = DATE_START || new Date('2020-01-01');
+  const rangeEnd = DATE_END || new Date('2030-12-31');
+  const rangeStartMonth = rangeStart.getFullYear() * 12 + rangeStart.getMonth();
+  const rangeEndMonth = rangeEnd.getFullYear() * 12 + rangeEnd.getMonth();
+
+  // 生成日期范围内的月份列表
+  const rangeMonths = [];
+  for (let mi = rangeStartMonth; mi <= rangeEndMonth; mi++) {
+    rangeMonths.push(Math.floor(mi / 12) + '-' + String(mi % 12 + 1).padStart(2, '0'));
+  }
+
+  // 从服务端 monthly_data 计算总估分
+  let total = 0;
+  if (MONTHLY_DATA) {
+    for (const mdata of Object.values(MONTHLY_DATA)) {
+      if (typeof mdata === 'object' && mdata !== null) {
+        for (const m of rangeMonths) {
+          const v = mdata[m];
+          if (typeof v === 'number') total += v;
+        }
+      }
+    }
+    total = Math.round(total * 10) / 10;
+  } else {
+    // 降级：用前端插值
+    function interpPts(d) {
+      const pts = Number(d.total_points) || 0;
+      if (pts <= 0) return 0;
+      if (!d.schedule_start || !d.schedule_end) return pts;
+      const ss = new Date(d.schedule_start);
+      const se = new Date(d.schedule_end);
+      const sm = ss.getFullYear() * 12 + ss.getMonth();
+      const em = se.getFullYear() * 12 + se.getMonth();
+      const mStart = Math.max(sm, rangeStartMonth);
+      const mEnd = Math.min(em, rangeEndMonth);
+      if (mStart > mEnd) return 0;
+      return pts * (mEnd - mStart + 1) / (em - sm + 1);
+    }
+    total = Math.round(filtered.reduce((a, d) => a + interpPts(d), 0) * 10) / 10;
+  }
+
+  const doneCount = filtered.filter(d => d.finish_status === true).length;
+  const wipCount = filtered.filter(d => d.finish_status !== true).length;
+  // done/wip 拆分仍用前端插值（monthly_data 不含完成状态维度）
+  function interpPts(d) {
+    const pts = Number(d.total_points) || 0;
+    if (pts <= 0) return 0;
+    if (!d.schedule_start || !d.schedule_end) return pts;
+    const ss = new Date(d.schedule_start);
+    const se = new Date(d.schedule_end);
+    const sm = ss.getFullYear() * 12 + ss.getMonth();
+    const em = se.getFullYear() * 12 + se.getMonth();
+    const mStart = Math.max(sm, rangeStartMonth);
+    const mEnd = Math.min(em, rangeEndMonth);
+    if (mStart > mEnd) return 0;
+    return pts * (mEnd - mStart + 1) / (em - sm + 1);
+  }
+  const donePts = Math.round(filtered.filter(d => d.finish_status === true).reduce((a, d) => a + interpPts(d), 0) * 10) / 10;
+  const wipPts = Math.round(filtered.filter(d => d.finish_status !== true).reduce((a, d) => a + interpPts(d), 0) * 10) / 10;
+
+  document.getElementById("kpiCountDesc").textContent =
+    fmtDate(DATE_START) + ' ~ ' + fmtDate(DATE_END) + '，共 ' + filtered.length + ' 个工作项'
+    + (DAILY_DATA ? '（度量估分插值）' : '（预估人力）');
+
+  document.getElementById("kpiTotal").textContent = Math.round(total);
+  document.getElementById("kpiTotalPM").textContent = toPM(total);
+  document.getElementById("kpiDone").textContent = Math.round(donePts);
+  document.getElementById("kpiDonePM").textContent = toPM(donePts);
+  document.getElementById("kpiWIP").textContent = Math.round(wipPts);
+  document.getElementById("kpiWIPPM").textContent = toPM(wipPts);
+  document.getElementById("kpiRate").textContent = total ? ((donePts / total * 100).toFixed(1)) + "%" : "-";
+  document.getElementById("kpiDoneCount").textContent = doneCount;
+  document.getElementById("kpiWIPRate").textContent = total ? ((wipPts / total * 100).toFixed(1)) + "%" : "-";
+  document.getElementById("kpiWIPCount").textContent = wipCount;
+  document.getElementById("kpiAvg").textContent = filtered.length ? (total / filtered.length).toFixed(1) : 0;
+}
+
+// ── Charts ──
+const COST_COLORS = ['#3498db','#e74c3c','#27ae60','#e67e22','#8e44ad','#1abc9c','#f39c12','#9b59b6','#34495e','#d35400','#2980b9','#c0392b','#16a085','#7f8c8d','#f1c40f'];
+
+// 柱子顶部数值标签插件
+const barLabelPlugin = {
+  id: 'barLabel',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    chart.data.datasets.forEach((ds, di) => {
+      const meta = chart.getDatasetMeta(di);
+      meta.data.forEach((bar, i) => {
+        const val = ds.data[i];
+        if (val > 0) {
+          ctx.save();
+          ctx.fillStyle = '#555';
+          ctx.font = '9px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(Math.round(val), bar.x, bar.y - 4);
+          ctx.restore();
+        }
+      });
+    });
+  }
+};
+
+function makeChart(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+
+function renderCharts() {
+  // 1. 按车型成本归类（表格，含月度列）
+  // 从日期区间生成所有月份，而不是只从数据中提取
+  const months = [];
+  if (DATE_START && DATE_END) {
+    let y = DATE_START.getFullYear();
+    let m = DATE_START.getMonth();
+    const endY = DATE_END.getFullYear();
+    const endM = DATE_END.getMonth();
+    while (y < endY || (y === endY && m <= endM)) {
+      months.push(y + '-' + String(m + 1).padStart(2, '0'));
+      m++;
+      if (m > 11) { m = 0; y++; }
+    }
+  }
+
+  // 按成本归类 x 月份 聚合
+  const costMonthData = {};
+  // Filter by business
+  const selectedBiz2 = getSelectedBiz();
+  const bizActive2 = selectedBiz2.length > 0;
+  let filteredForChart = FILTERED;
+  if (bizActive2) {
+    filteredForChart = FILTERED.filter(d => {
+      const match = selectedBiz2.includes(d.business);
+      return BUSINESS_INVERSE ? !match : match;
+    });
+  }
+
+  // 使用快照中的月度聚合数据
+  if (MONTHLY_DATA) {
+    for (const [cat, mdata] of Object.entries(MONTHLY_DATA)) {
+      if (!costMonthData[cat]) costMonthData[cat] = { total: 0, months: {} };
+      if (typeof mdata === 'object' && mdata !== null) {
+        for (const [m, v] of Object.entries(mdata)) {
+          if (months.includes(m) && typeof v === 'number') {
+            costMonthData[cat].months[m] = (costMonthData[cat].months[m] || 0) + v;
+            costMonthData[cat].total += v;
+          }
+        }
+      }
+    }
+  } else {
+    // 降级：无服务端数据时用前端插值
+    filteredForChart.forEach(d => {
+      const cat = d.cost_category || "未归类";
+      const pts = Number(d.total_points) || 0;
+      if (pts <= 0) return;
+      if (!costMonthData[cat]) costMonthData[cat] = { total: 0, months: {} };
+      if (d.schedule_start && d.schedule_end) {
+        const ss = new Date(d.schedule_start);
+        const se = new Date(d.schedule_end);
+        const sm = ss.getFullYear() * 12 + ss.getMonth();
+        const em = se.getFullYear() * 12 + se.getMonth();
+        const monthCount = em - sm + 1;
+        const perMonth = pts / monthCount;
+        for (let mi = sm; mi <= em; mi++) {
+          const m = Math.floor(mi / 12) + '-' + String(mi % 12 + 1).padStart(2, '0');
+          if (months.includes(m)) {
+            costMonthData[cat].months[m] = (costMonthData[cat].months[m] || 0) + perMonth;
+            costMonthData[cat].total += perMonth;
+          }
+        }
+      } else {
+        const m = d.created_month || (d.created_at ? d.created_at.slice(0,7) : "未知");
+        costMonthData[cat].total += pts;
+        costMonthData[cat].months[m] = (costMonthData[cat].months[m] || 0) + pts;
+      }
+    });
+  }
+  const costEntries = Object.entries(costMonthData).sort((a,b) => b[1].total - a[1].total);
+  const grandTotal = costEntries.reduce((s,e) => s + e[1].total, 0);
+
+  // 简短月份标签
+  const shortMonth = m => {
+    const [y, mo] = m.split('-');
+    return y.slice(2) + '/' + mo;
+  };
+
+  // 计算每列最大值（用于按列独立色阶）
+  const colMaxes = months.map(() => 0);
+  costEntries.forEach(e => {
+    months.forEach((m, i) => {
+      const v = e[1].months[m] || 0;
+      if (v > colMaxes[i]) colMaxes[i] = v;
+    });
+  });
+
+  // 计算每列合计
+  const colTotals = months.map(m => costEntries.reduce((s,e) => s + (e[1].months[m]||0), 0));
+
+  // 每月TOP3车型（按月度独立排名）
+  const monthlyTop3 = {};
+  months.forEach(m => {
+    const ranked = costEntries.map(e => ({ name: e[0], value: e[1].months[m] || 0 }))
+      .sort((a, b) => b.value - a.value).slice(0, 3);
+    monthlyTop3[m] = ranked;
+  });
+
+  // 整体TOP3（区间内资源消耗排名）
+  const top3 = costEntries.slice(0, 3);
+  const top3Cats = new Set(top3.map(e => e[0]));
+  const top3Names = top3.map((e, i) => '<span style="color:' + ['#8e44ad','#3498db','#1abc9c'][i] + '">' + (i+1) + '. ' + e[0] + '</span>').join('、');
+  const top3Pct = top3.length ? ((top3.reduce((s,e) => s+e[1].total, 0) / grandTotal) * 100).toFixed(1) : 0;
+
+  // 月度TOP3结构化展示
+  const monthlyTopLines = months.map(m => {
+    const tops = monthlyTop3[m];
+    const items = tops.map((t, i) => '<b>' + t.name + '</b> ' + t.value + '人天').join(' / ');
+    return '<span style="display:inline-block;min-width:56px;color:#555">' + shortMonth(m) + '</span> ' + items;
+  });
+
+  const descHtml =
+    '<div style="display:flex;gap:24px;flex-wrap:wrap">' +
+    '<div style="flex:1;min-width:200px">' +
+    '<b>说明</b><br>' +
+    '▸ 单位：人天<br>' +
+    '▸ 色阶按月度列独立计算，每列TOP3分别用<span style="color:#e74c3c">红</span>/<span style="color:#f39c12">橙</span>/<span style="color:#bdc3c7">灰</span>标识<br>' +
+    '▸ 区间内资源消耗TOP3：合计列用<span style="color:#8e44ad">紫</span>/<span style="color:#3498db">蓝</span>/<span style="color:#1abc9c">青</span>色块标识，与月度色阶区分<br>' +
+    '▸ 无数据标记 <span style="color:#ccc">-</span><br>' +
+    '▸ 数值保留1位小数，四舍五入<br>' +
+    '</div></div>';
+  document.getElementById("costDesc").innerHTML = descHtml;
+
+  // 构建表头
+  const headHtml = '<tr><th>车型</th><th>合计</th>' +
+    months.map(m => '<th>' + shortMonth(m) + '</th>').join('') +
+    '</tr>';
+  document.getElementById("costTableHead").innerHTML = headHtml;
+
+  // 每列TOP3排名
+  const colTop3 = months.map(m => {
+    return costEntries.map(e => ({ name: e[0], value: e[1].months[m] || 0 }))
+      .sort((a, b) => b.value - a.value).slice(0, 3).map(x => x.name);
+  });
+
+  // 构建表体（合计列用紫/蓝/青，月度列用红/橙/灰）
+  const topColor = ['#8e44ad', '#3498db', '#1abc9c'];
+  const bodyHtml = costEntries.map((e, ri) => {
+    const cat = e[0];
+    const total = e[1].total;
+    // 合计列TOP3色块
+    const topIdx = top3.indexOf(top3.find(t => t[0] === cat));
+    const firstTdStyle = topIdx >= 0 ? 'background:' + topColor[topIdx] + ';color:#fff;font-weight:700' : '';
+    // 月度列TOP3色块
+    const cells = months.map((m, mi) => {
+      const v = e[1].months[m] || 0;
+      const t3 = colTop3[mi];
+      let cls = 'cost-cell-zero';
+      if (v > 0) {
+        const ci = t3.indexOf(cat);
+        if (ci === 0) cls = 'cost-cell-top1';
+        else if (ci === 1) cls = 'cost-cell-top2';
+        else if (ci === 2) cls = 'cost-cell-top3';
+        else if (v >= (colMaxes[mi] || 1) * 0.3) cls = 'cost-cell-mid';
+        else cls = 'cost-cell-low';
+      }
+      return '<td class="' + cls + '">' + (Math.round(v * 10) / 10 || '-') + '</td>';
+    }).join('');
+    return '<tr><td title="' + cat + '" style="' + firstTdStyle + '">' + cat + '</td><td style="' + firstTdStyle + '">' + (Math.round(total * 10) / 10) + '</td>' + cells + '</tr>';
+  }).join('');
+
+  // 合计行
+  const totalRow = '<tr class="cost-total-row"><td>合计</td><td>' + (Math.round(grandTotal * 10) / 10) + '</td>' +
+    months.map((m, i) => '<td>' + (Math.round(colTotals[i] * 10) / 10) + '</td>').join('') + '</tr>';
+
+  document.getElementById("costTableBody").innerHTML = bodyHtml + totalRow;
+
+  // === 生成AI分析 ===
+  generateAnalysis(costEntries, months, colTotals, grandTotal, monthlyTop3);
+
+  // 2. 按月度 — 使用日期区间的所有月份，无数据的月份显示0
+  const monthGroups = {};
+  months.forEach(m => { monthGroups[m] = 0; });
+  FILTERED.forEach(d => {
+    const m = d.created_month || (d.created_at ? d.created_at.slice(0,7) : null);
+    if (m && monthGroups.hasOwnProperty(m)) {
+      monthGroups[m] += (Number(d.total_points) || 0);
+    }
+  });
+  const monthEntries = months.map(m => [m, monthGroups[m] || 0]);
+  makeChart("chartMonth", {
+    type: "bar",
+    data: {
+      labels: monthEntries.map(e => e[0]),
+      datasets: [{ label: "新增估分", data: monthEntries.map(e => e[1]), backgroundColor: "#3498db", borderRadius: 4 }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, title: { display: true, text: "估分(人天)" } } } }
+  });
+
+  // 3. 月度趋势（分已完/进行中/待办）— 使用日期区间的月份
+  const trendDone = {}, trendWIP = {}, trendTodo = {};
+  months.forEach(m => { trendDone[m] = 0; trendWIP[m] = 0; trendTodo[m] = 0; });
+  FILTERED.forEach(d => {
+    const m = d.created_month || (d.created_at ? d.created_at.slice(0,7) : null);
+    if (!m || !trendDone.hasOwnProperty(m)) return;
+    const p = Number(d.total_points) || 0;
+    if (d.finish_status === true) trendDone[m] += p;
+    else trendWIP[m] += p;
+  });
+  makeChart("chartTrend", {
+    type: "bar",
+    data: {
+      labels: months,
+      datasets: [
+        { label: "已完成", data: months.map(m => trendDone[m]||0), backgroundColor: "#27ae60", borderRadius: 3 },
+        { label: "进行中", data: months.map(m => trendWIP[m]||0), backgroundColor: "#e67e22", borderRadius: 3 },
+        { label: "其他", data: months.map(m => trendTodo[m]||0), backgroundColor: "#bdc3c7", borderRadius: 3 }
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: "top" }, barLabel: {}, tooltip: { callbacks: { afterBody: function(context) { const month = context[0].label; const count = FILTERED.filter(d => { const m = d.created_month || (d.created_at ? d.created_at.slice(0,7) : null); return m === month; }).length; return '工作项: ' + count + ' 个'; } } } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, title: { display: true, text: "估分(人天)" } } } }
+  });
+}
+
+// ── AI 分析生成（三维数据驱动）──
+function generateAnalysis(costEntries, months, colTotals, grandTotal, monthlyTop3) {
+  if (!costEntries.length || !months.length) {
+    document.getElementById("analysisSummary").innerHTML = '<div class="item">当前筛选区间内无数据</div>';
+    document.getElementById("analysisHighlights").innerHTML = '<div class="item">-</div>';
+    document.getElementById("analysisIssues").innerHTML = '<div class="item">-</div>';
+    return;
+  }
+
+  const top3 = costEntries.slice(0, 3);
+  const top3Total = top3.reduce((s, e) => s + e[1].total, 0);
+  const monthRange = months[0] + ' ~ ' + months[months.length - 1];
+  const nonZeroCats = costEntries.filter(e => e[1].total > 0).length;
+  const concentrationRatio = grandTotal > 0 ? ((top3Total / grandTotal) * 100).toFixed(0) : 0;
+
+  // 筛选上下文描述
+  const bizActive = getSelectedBiz().length > 0;
+  const crossActive = CROSS_DOMAIN_FILTER !== null;
+  const ctxParts = [];
+  if (DATE_START > new Date('2020-01-01') || DATE_END < new Date('2030-12-31')) {
+    ctxParts.push('日期 ' + fmtDate(DATE_START) + '~' + fmtDate(DATE_END));
+  }
+  if (bizActive) ctxParts.push('业务筛选（' + getSelectedBiz().length + ' 个）');
+  if (crossActive) ctxParts.push('跨域=' + CROSS_DOMAIN_FILTER);
+  const filterDesc = ctxParts.length ? ctxParts.join(' ∩ ') : '全量数据';
+  const ctxTag = '<div style="font-size:10px;color:#999;margin-bottom:6px;border-bottom:1px solid #f0f0f0;padding-bottom:4px;">📌 当前分析基于：<b>' + filterDesc + '</b>，共 <b>' + FILTERED.length + '</b> 个工作项，<b>' + nonZeroCats + '</b> 个车型有投入</div>';
+  const avgPerMonth = grandTotal / months.length;
+  const maxMonthIdx = colTotals.indexOf(Math.max(...colTotals));
+  const singleMonthMax = Math.max(...colTotals);
+
+  // ── 趋势 ──
+  const firstMonthTotal = colTotals[0] || 0;
+  const lastMonthTotal = colTotals[colTotals.length - 1] || 0;
+  let trendPct = 0, trendDir = '平稳';
+  if (firstMonthTotal > 0) {
+    trendPct = (((lastMonthTotal - firstMonthTotal) / firstMonthTotal) * 100).toFixed(0);
+    trendDir = trendPct > 10 ? '上升' : (trendPct < -10 ? '下降' : '平稳');
+  }
+
+  // ── 投入均匀性（标准差系数）──
+  const avgC = colTotals.reduce((a, b) => a + b, 0) / colTotals.length;
+  const stdC = Math.sqrt(colTotals.reduce((s, v) => s + Math.pow(v - avgC, 2), 0) / colTotals.length);
+  const cv = avgC > 0 ? stdC / avgC : 0;
+
+  // ── 零投入月数 ──
+  const zeroMonths = colTotals.filter(v => v === 0).length;
+
+  // ── 交付状态统计 ──
+  const totalItems = FILTERED.length;
+  const doneItems = FILTERED.filter(d => d.finish_status === true).length;
+  const wipItems = FILTERED.filter(d => d.finish_status !== true).length;
+  const doneRate = totalItems > 0 ? ((doneItems / totalItems) * 100).toFixed(0) : 0;
+  const wipRate = totalItems > 0 ? ((wipItems / totalItems) * 100).toFixed(0) : 0;
+
+  // ── 业务线覆盖 ──
+  const bizCount = new Set(FILTERED.map(d => d.business).filter(Boolean)).size;
+
+  // ── 新车型（末月才有数据）──
+  const newCats = costEntries.filter(e => {
+    const ms = Object.values(e[1].months);
+    return e[1].total > 0 && ms.slice(0, -1).every(v => v === 0) && ms[ms.length - 1] > 0;
+  });
+
+  // ── 车型间离散系数 ──
+  const catTotals = costEntries.filter(e => e[1].total > 0).map(e => e[1].total);
+  const catAvg = catTotals.reduce((a, b) => a + b, 0) / catTotals.length;
+  const catStd = Math.sqrt(catTotals.reduce((s, v) => s + Math.pow(v - catAvg, 2), 0) / catTotals.length);
+  const catCv = catAvg > 0 ? catStd / catAvg : 0;
+
+  // ── TOP3 平均 vs 底部3平均 ──
+  const bottom3 = costEntries.filter(e => e[1].total > 0).slice(-3);
+  const top3Avg = top3.length ? top3.reduce((s, e) => s + e[1].total, 0) / top3.length : 0;
+  const bottom3Avg = bottom3.length ? bottom3.reduce((s, e) => s + e[1].total, 0) / bottom3.length : 0;
+  const tierRatio = bottom3Avg > 0 ? (top3Avg / bottom3Avg).toFixed(1) : 0;
+
+  // ── TOP1 频繁变动 ──
+  const top1Names = months.map(m => monthlyTop3[m] && monthlyTop3[m][0] ? monthlyTop3[m][0].name : '');
+  const uniqueTop1 = new Set(top1Names.filter(Boolean));
+  const top1ChangeRate = months.length > 0 ? (uniqueTop1.size / months.length * 100).toFixed(0) : 0;
+
+  // ═══════════════════════════════════════
+  // 数据总结（精简版）
+  // ═══════════════════════════════════════
+  const summaryHtml =
+    '<div class="item">▸ 区间 <b>' + monthRange + '</b>，共 <span class="val">' + months.length + '</span> 个月，<span class="val">' + nonZeroCats + '</span> 个车型有投入</div>' +
+    '<div class="item">▸ 总资源消耗 <span class="val">' + Math.round(grandTotal) + ' 人天</span>（≈' + (grandTotal / 21.75).toFixed(1) + ' 人月），月均 <span class="val">' + Math.round(avgPerMonth) + ' 人天</span></div>' +
+    '<div class="item">▸ 投入高峰：<span class="val">' + months[maxMonthIdx] + '</span>（' + Math.round(singleMonthMax) + ' 人天）</div>' +
+    '<div class="item">▸ TOP3 集中度 <span class="val">' + concentrationRatio + '%</span>，趋势 <span class="val">' + trendDir + '</span>' + (trendPct != 0 ? '（' + (trendPct > 0 ? '+' : '') + trendPct + '%）' : '') + '</div>';
+  document.getElementById("analysisSummary").innerHTML = ctxTag + summaryHtml;
+
+  // ═══════════════════════════════════════
+  // 当前亮点，继续保持（三维）
+  // ═══════════════════════════════════════
+  let h = '';
+
+  // 维度一：经营节奏
+  h += '<div class="dim-title">▶ 经营节奏</div>';
+  let dim1 = '';
+  if (cv < 0.3) {
+    dim1 += '<div class="item"><span class="tag-pos">节奏</span>月度投入波动系数 <span class="val">' + (cv * 100).toFixed(0) + '%</span>，排期节奏稳定可控</div>';
+  }
+  if (totalItems > 0 && doneRate > 40) {
+    dim1 += '<div class="item"><span class="tag-pos">交付</span>已完成工作项占比 <span class="val">' + doneRate + '%</span>，交付节奏健康</div>';
+  }
+  if (zeroMonths === 0 && months.length >= 3) {
+    dim1 += '<div class="item"><span class="tag-pos">连续</span>月度投入无断崖式下降，排期连续性良好</div>';
+  }
+  h += dim1 || '<div class="item" style="color:#aaa;">当前区间数据正常</div>';
+
+  // 维度二：资源分配
+  h += '<div class="dim-title">▶ 资源分配</div>';
+  let dim2 = '';
+  const activeCats = costEntries.filter(e => Object.values(e[1].months).some(v => v > 0)).length;
+  if (activeCats >= 5) {
+    dim2 += '<div class="item"><span class="tag-pos">覆盖</span>资源覆盖 <span class="val">' + activeCats + '</span> 个车型，多线并行推进</div>';
+  }
+  if (catCv < 1.0 && catTotals.length >= 2) {
+    dim2 += '<div class="item"><span class="tag-pos">均衡</span>车型间投入离散系数 <span class="val">' + (catCv * 100).toFixed(0) + '%</span>，资源分配相对均衡</div>';
+  }
+  if (newCats.length > 0) {
+    const names = newCats.slice(0, 3).map(e => e[0]).join('、');
+    dim2 += '<div class="item"><span class="tag-pos">新增</span>' + names + (newCats.length > 3 ? ' 等' + newCats.length + '个' : '') + ' 末月启动投入，新项目进入研发阶段</div>';
+  }
+  h += dim2 || '<div class="item" style="color:#aaa;">当前区间数据正常</div>';
+
+  // 维度三：管控基础
+  h += '<div class="dim-title">▶ 管控基础</div>';
+  let dim3 = '';
+  if (nonZeroCats >= 10) {
+    dim3 += '<div class="item"><span class="tag-pos">体系</span>已建立 <span class="val">' + nonZeroCats + '</span> 个车型的月度投入数据，管控基础完备</div>';
+  }
+  if (months.length >= 3) {
+    dim3 += '<div class="item"><span class="tag-pos">数据</span>覆盖 <span class="val">' + months.length + '</span> 个月数据，趋势分析具备基础</div>';
+  }
+  if (bizCount > 0) {
+    dim3 += '<div class="item"><span class="tag-pos">协同</span>资源覆盖 <span class="val">' + bizCount + '</span> 条业务线</div>';
+  }
+  h += dim3 || '<div class="item" style="color:#aaa;">当前区间数据正常</div>';
+
+  document.getElementById("analysisHighlights").innerHTML = ctxTag + h;
+
+  // ═══════════════════════════════════════
+  // 问题洞察，改进提升（三维）
+  // ═══════════════════════════════════════
+  let iss = '';
+
+  // 维度一：经营风险
+  iss += '<div class="dim-title">▶ 经营风险</div>';
+  let iss1 = '';
+  // 排期断崖
+  let emptyPeriods = [];
+  for (let i = 1; i < colTotals.length; i++) {
+    if (colTotals[i - 1] > 0 && colTotals[i] > 0) {
+      const drop = (colTotals[i - 1] - colTotals[i]) / colTotals[i - 1];
+      if (drop > 0.5) {
+        emptyPeriods.push(months[i - 1] + '→' + months[i] + '（↓' + (drop * 100).toFixed(0) + '%）');
+      }
+    }
+  }
+  if (emptyPeriods.length > 0) {
+    iss1 += '<div class="item"><span class="tag-neg">断崖</span>投入断崖式下降：' + emptyPeriods.slice(0, 3).join('、') + '</div>';
+    iss1 += '<div class="item" style="color:#888;font-size:10px;">→ 建议：排查断崖月份是否存在需求积压或评审阻塞</div>';
+  }
+  // 零投入月份
+  if (zeroMonths > 0) {
+    iss1 += '<div class="item"><span class="tag-neg">空档</span>' + zeroMonths + ' 个月无任何资源投入</div>';
+    iss1 += '<div class="item" style="color:#888;font-size:10px;">→ 建议：确认该月份需求池状态，避免规划盲区</div>';
+  }
+  // 趋势下降
+  if (parseFloat(trendPct) < -20) {
+    iss1 += '<div class="item"><span class="tag-neg">下降</span>投入趋势下降 <span class="val">' + trendPct + '%</span></div>';
+    iss1 += '<div class="item" style="color:#888;font-size:10px;">→ 建议：确认后续季度需求池是否充足</div>';
+  }
+  // 交付积压
+  if (parseFloat(wipRate) > 60 && parseFloat(doneRate) < 20) {
+    iss1 += '<div class="item"><span class="tag-neg">积压</span>进行中占比 <span class="val">' + wipRate + '%</span>，已完成仅 <span class="val">' + doneRate + '%</span></div>';
+    iss1 += '<div class="item" style="color:#888;font-size:10px;">→ 建议：聚焦在制品清理</div>';
+  }
+  iss += iss1 || '<div class="item" style="color:#aaa;">当前区间未发现明显资源风险</div>';
+
+  // 维度二：资源效率
+  iss += '<div class="dim-title">▶ 资源效率</div>';
+  let iss2 = '';
+  // 碎片化
+  const fragmentedCats = costEntries.filter(e => e[1].total > 0 && e[1].total < grandTotal * 0.02);
+  if (fragmentedCats.length >= 5) {
+    iss2 += '<div class="item"><span class="tag-neg">碎片化</span>' + fragmentedCats.length + ' 个车型投入不足总量 2%</div>';
+    iss2 += '<div class="item" style="color:#888;font-size:10px;">→ 建议：合并低投入需求，集中资源保障核心车型</div>';
+  }
+  // 零投入车型
+  const zeroCats = costEntries.filter(e => e[1].total === 0);
+  if (zeroCats.length > 0) {
+    iss2 += '<div class="item"><span class="tag-neg">零投入</span>' + zeroCats.map(e => e[0]).join('、') + ' 无资源投入</div>';
+    iss2 += '<div class="item" style="color:#888;font-size:10px;">→ 建议：评估是否应归档</div>';
+  }
+  // TOP3 过度集中
+  if (parseFloat(concentrationRatio) > 70) {
+    iss2 += '<div class="item"><span class="tag-neg">集中</span>TOP3 占比 <span class="val">' + concentrationRatio + '%</span></div>';
+    iss2 += '<div class="item" style="color:#888;font-size:10px;">→ 建议：为尾部车型预留弹性资源池</div>';
+  }
+  // 波动过大
+  if (cv > 0.5) {
+    iss2 += '<div class="item"><span class="tag-neg">波动</span>月度投入波动系数 <span class="val">' + (cv * 100).toFixed(0) + '%</span></div>';
+    iss2 += '<div class="item" style="color:#888;font-size:10px;">→ 建议：建立季度资源预分配机制</div>';
+  }
+  iss += iss2 || '<div class="item" style="color:#aaa;">当前区间未发现明显资源风险</div>';
+
+  // 维度三：管控短板
+  iss += '<div class="dim-title">▶ 管控短板</div>';
+  let iss3 = '';
+  // 缺分级标准
+  if (parseFloat(tierRatio) < 3 && bottom3Avg > 0) {
+    iss3 += '<div class="item"><span class="tag-neg">分级</span>TOP3 平均 / 底部3 平均 = <span class="val">' + tierRatio + '</span>，分级不明显</div>';
+    iss3 += '<div class="item" style="color:#888;font-size:10px;">→ 建议：建立 S/A/B/C 四级分类体系</div>';
+  }
+  // TOP 排名频繁变动
+  if (parseFloat(top1ChangeRate) > 50) {
+    iss3 += '<div class="item"><span class="tag-neg">变动</span>TOP1 月度变动率 <span class="val">' + top1ChangeRate + '%</span>，排名频繁切换</div>';
+    iss3 += '<div class="item" style="color:#888;font-size:10px;">→ 建议：建立月度资源看板评审机制</div>';
+  }
+  // 无预实偏差基线
+  if (months.length < 6) {
+    iss3 += '<div class="item"><span class="tag-neg">基线</span>数据覆盖 <span class="val">' + months.length + '</span> 个月，尚不足以建立预实偏差基线</div>';
+    iss3 += '<div class="item" style="color:#888;font-size:10px;">→ 建议：引入月度资源规划基线（Plan vs Actual）</div>';
+  }
+  iss += iss3 || '<div class="item" style="color:#aaa;">当前区间未发现明显资源风险</div>';
+
+  document.getElementById("analysisIssues").innerHTML = ctxTag + iss;
+}
+
+// ── Table ──
+function renderTable() {
+  const total = FILTERED.length;
+  const totalPages = Math.max(1, Math.ceil(total / TABLE_PAGE_SIZE));
+  if (TABLE_PAGE > totalPages) TABLE_PAGE = totalPages;
+  const start = (TABLE_PAGE - 1) * TABLE_PAGE_SIZE;
+  const rows = FILTERED.slice(start, start + TABLE_PAGE_SIZE);
+  const PRI_TAG = { "P0": "tag-high", "P1": "tag-high", "高": "tag-high", "high": "tag-high", "P2": "tag-medium", "中": "tag-medium", "medium": "tag-medium", "P3": "tag-low", "低": "tag-low", "low": "tag-low" };
+  document.getElementById("tbody").innerHTML = rows.map((d,i) => {
+    const pr = d.priority || "未定";
+    const tc = PRI_TAG[pr] || "";
+    const idx = start + i + 1;
+    return `<tr>
+      <td>${idx}</td>
+      <td>${d.id}</td>
+      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d.name}">${d.name}</td>
+      <td>${d.cost_category}</td>
+      <td>${d.total_points || 0}</td>
+      <td><span class="tag ${tc}">${pr}</span></td>
+      <td>${d.status_label || d.status}</td>
+      <td>${d.start_time || d.created_at || '-'}</td>
+      <td>${d.finish_time || '-'}</td>
+    </tr>`;
+  }).join("");
+
+  // 更新分页信息
+  document.getElementById("tableMeta").textContent = `共 ${total} 条工作项，第 ${TABLE_PAGE}/${totalPages} 页`;
+  document.getElementById("pageInfo").textContent = `${start + 1}-${Math.min(start + TABLE_PAGE_SIZE, total)} / ${total}`;
+  document.getElementById("btnFirst").disabled = TABLE_PAGE <= 1;
+  document.getElementById("btnPrev").disabled = TABLE_PAGE <= 1;
+  document.getElementById("btnNext").disabled = TABLE_PAGE >= totalPages;
+  document.getElementById("btnLast").disabled = TABLE_PAGE >= totalPages;
+
+  // 页码按钮
+  let pageHtml = '';
+  const range = 2;
+  for (let p = Math.max(1, TABLE_PAGE - range); p <= Math.min(totalPages, TABLE_PAGE + range); p++) {
+    pageHtml += `<button class="btn btn-preset${p === TABLE_PAGE ? ' active' : ''}" onclick="tablePageGo(${p})" style="min-width:28px;padding:4px 8px;">${p}</button>`;
+  }
+  document.getElementById("pageNumbers").innerHTML = pageHtml;
+}
+function tablePageGo(p) { TABLE_PAGE = p; renderTable(); document.querySelector('.table-wrap').scrollTop = 0; }
+function tablePageFirst() { tablePageGo(1); }
+function tablePagePrev() { if (TABLE_PAGE > 1) tablePageGo(TABLE_PAGE - 1); }
+function tablePageNext() { tablePageGo(TABLE_PAGE + 1); }
+function tablePageLast() {
+  const totalPages = Math.ceil(FILTERED.length / TABLE_PAGE_SIZE);
+  tablePageGo(totalPages);
+}
+function tablePageSizeChange(val) {
+  TABLE_PAGE_SIZE = parseInt(val);
+  TABLE_PAGE = 1;
+  renderTable();
+}
+
+// Auto refresh on date change
+document.getElementById("dateStart").addEventListener("change", applyFilters);
+document.getElementById("dateEnd").addEventListener("change", applyFilters);
+
+// ── AI Chat ──
+function sendChat() {
+  const input = document.getElementById("chatInput");
+  const question = input.value.trim();
+  if (!question) return;
+
+  const messagesEl = document.getElementById("chatMessages");
+  const sendBtn = document.getElementById("chatSendBtn");
+
+  // Show user message
+  const userDiv = document.createElement("div");
+  userDiv.className = "chat-msg chat-msg-user";
+  userDiv.textContent = question;
+  messagesEl.appendChild(userDiv);
+
+  // Thinking placeholder
+  const aiDiv = document.createElement("div");
+  aiDiv.className = "chat-msg chat-msg-ai";
+  aiDiv.textContent = "思考中...";
+  messagesEl.appendChild(aiDiv);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  input.value = "";
+  sendBtn.disabled = true;
+  sendBtn.textContent = "发送中...";
+
+  // Build context
+  const rawSlim = RAW_DATA.slice(0, 200).map(d => ({
+    name: d.name, cost_category: d.cost_category, points: d.total_points,
+    status_label: d.status_label, created_at: d.created_at, business: d.business
+  }));
+  const ctx = {
+    raw_data: rawSlim,
+    daily_data: DAILY_DATA,
+    monthly_data: MONTHLY_DATA,
+    date_range: {
+      start: document.getElementById("dateStart").value,
+      end: document.getElementById("dateEnd").value
+    }
+  };
+
+  CHAT_HISTORY.push({ role: "user", content: question });
+
+  fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question: question, context: ctx })
+  })
+  .then(r => r.json())
+  .then(data => {
+    const reply = data.reply || data.answer || data.message || "未获取到回复";
+    aiDiv.innerHTML = marked.parse(reply);
+    CHAT_HISTORY.push({ role: "assistant", content: reply });
+  })
+  .catch(err => {
+    aiDiv.textContent = "请求失败: " + err.message;
+  })
+  .finally(() => {
+    sendBtn.disabled = false;
+    sendBtn.textContent = "发送";
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  });
+}
+
+// Enter to send, Shift+Enter for newline
+document.getElementById("chatInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendChat();
+  }
+});
+
+// ── 拖拽调整大小 ──
+document.querySelectorAll('.resize-handle').forEach(handle => {
+  const card = handle.parentElement;
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const startX = e.clientX, startY = e.clientY;
+    const startW = card.offsetWidth, startH = card.offsetHeight;
+    card.style.width = startW + 'px';
+    card.style.height = startH + 'px';
+    const onMove = ev => {
+      card.style.width = Math.max(parseInt(card.style.minWidth) || 400, startW + ev.clientX - startX) + 'px';
+      card.style.height = Math.max(parseInt(card.style.minHeight) || 150, startH + ev.clientY - startY) + 'px';
+    };
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+});
+
+loadData();
+</script>
+</body>
+</html>

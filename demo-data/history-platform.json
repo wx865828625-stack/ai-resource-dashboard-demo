@@ -1,0 +1,1 @@
+{"versions":[{"time":"2026-09-01 14:41:43","user":"演示用户","source":"auto","note":"更新平台演示快照","version_id":"demo-v3","changes":[{"field":"演示数据","desc":"更新合成数据快照"}],"has_full_snapshot":false},{"time":"2026-08-15 10:00:00","user":"演示用户","source":"manual","note":"调整平台分析说明","version_id":"demo-v2","changes":[{"field":"分析说明","desc":"优化公开展示内容"}],"has_full_snapshot":false}]}
