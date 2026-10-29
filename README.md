@@ -6,7 +6,7 @@
 
 ## 在线演示
 
-首次 GitHub Pages 发布完成后，这里会更新公网地址。
+[打开公网演示](https://wx865828625-stack.github.io/ai-resource-dashboard-demo/)
 
 ## 主要能力
 
